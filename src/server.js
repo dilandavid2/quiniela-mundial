@@ -148,8 +148,15 @@ app.post('/api/predictions/:matchId', requireAuth, (req, res) => {
   const { matchId } = req.params;
   const { homeGoals, awayGoals } = req.body || {};
 
-  if (!Number.isInteger(homeGoals) || !Number.isInteger(awayGoals) || homeGoals < 0 || awayGoals < 0) {
-    return res.status(400).json({ error: 'Pronóstico inválido' });
+  if (
+    !Number.isInteger(homeGoals) ||
+    !Number.isInteger(awayGoals) ||
+    homeGoals < 0 ||
+    awayGoals < 0 ||
+    homeGoals > 10 ||
+    awayGoals > 10
+  ) {
+    return res.status(400).json({ error: 'El pronóstico debe tener goles entre 0 y 10' });
   }
 
   const db = readDb();
@@ -239,9 +246,17 @@ app.post('/api/admin/matches/:matchId/result', (req, res) => {
   }
 
   const { matchId } = req.params;
-  const { homeGoals, awayGoals } = req.body || {};
+  const homeGoals = Number(req.body?.homeGoals);
+  const awayGoals = Number(req.body?.awayGoals);
 
-  if (!Number.isInteger(homeGoals) || !Number.isInteger(awayGoals) || homeGoals < 0 || awayGoals < 0) {
+  if (
+    !Number.isInteger(homeGoals) ||
+    !Number.isInteger(awayGoals) ||
+    homeGoals < 0 ||
+    awayGoals < 0 ||
+    homeGoals > 10 ||
+    awayGoals > 10
+  ) {
     return res.status(400).json({ error: 'Resultado inválido' });
   }
 

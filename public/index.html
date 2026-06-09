@@ -40,17 +40,20 @@
           </div>
           <button id="logout-btn" class="secondary">Salir</button>
         </div>
+        <p id="message" class="message"></p>
 
         <div class="tabs">
           <button class="tab-btn active" data-tab="matches">⚽ Fase de Grupos</button>
           <button class="tab-btn" data-tab="knockout">⚔️ Llaves</button>
           <button class="tab-btn" data-tab="classification">🏆 Clasificación</button>
           <button class="tab-btn" data-tab="leaderboard">📊 Tabla</button>
+          <button class="tab-btn" data-tab="admin">🛠️ Admin</button>
         </div>
 
         <section class="tab-panel" id="tab-matches">
           <div class="card">
             <h2>Mis pronósticos – Fase de Grupos</h2>
+            <button id="save-all-matches-btn" style="margin-bottom:14px">Guardar todos los pronósticos</button>
             <div id="matches"></div>
           </div>
         </section>
@@ -58,6 +61,7 @@
         <section class="tab-panel hidden" id="tab-knockout">
           <div class="card">
             <h2>Fases Eliminatorias</h2>
+            <button id="save-all-knockout-btn" style="margin-bottom:14px">Guardar pronósticos de llaves</button>
             <div id="knockout"></div>
           </div>
         </section>
@@ -97,9 +101,30 @@
             <span class="bnav-label">Tabla</span>
           </button>
         </nav>
+        <section class="tab-panel hidden" id="tab-admin">
+          <div class="card">
+            <h2>Panel administrador</h2>
+            <p class="muted">Carga resultados oficiales de los partidos.</p>
+
+            <form id="admin-result-form">
+              <input name="secret" type="password" placeholder="Clave admin" required />
+
+              <select name="matchId" required id="admin-match-select">
+                <option value="">Selecciona un partido</option>
+              </select>
+
+              <div class="row-actions">
+                <input name="homeGoals" class="score-input" type="number" min="0" max="10" placeholder="Local" required />
+                <span>-</span>
+                <input name="awayGoals" class="score-input" type="number" min="0" max="10" placeholder="Visitante" required />
+              </div>
+
+              <button type="submit">Guardar resultado oficial</button>
+            </form>
+          </div>
+        </section>
       </section>
 
-      <p id="message" class="message"></p>
     </main>
 
     <script src="/app.js"></script>

@@ -8,6 +8,8 @@ const leaderboardEl = document.getElementById('leaderboard');
 const registerForm = document.getElementById('register-form');
 const loginForm = document.getElementById('login-form');
 const logoutBtn = document.getElementById('logout-btn');
+const adminResultForm = document.getElementById('admin-result-form');
+const adminMatchSelect = document.getElementById('admin-match-select');
 
 // ── Banderas ──────────────────────────────────────────────────────────────────
 const FLAGS = {
@@ -98,9 +100,13 @@ function setMessage(msg, isError = false) {
 
 async function api(path, options = {}) {
   const response = await fetch(path, {
-    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
-    ...options
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(options.headers || {})
+    }
   });
+
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.error || 'Error inesperado');
   return data;
@@ -130,26 +136,11 @@ function buildMatchCard(match) {
       <span class="team">${awayLabel}</span>
     </div>
     <div class="row-actions">
-      <input class="score-input" type="number" min="0" value="${prediction.homeGoals}" ${canPredict ? '' : 'disabled'} />
+      <input class="score-input" data-match-id="${match.id}" data-team="home" type="number" min="0" max="10" value="${prediction.homeGoals}" ${canPredict ? '' : 'disabled'} oninput="this.value = Math.min(10, Math.max(0, this.value))" />
       <span>-</span>
-      <input class="score-input" type="number" min="0" value="${prediction.awayGoals}" ${canPredict ? '' : 'disabled'} />
-      <button ${canPredict ? '' : 'disabled'}>${match.prediction ? 'Actualizar' : 'Guardar'}</button>
+      <input class="score-input" data-match-id="${match.id}" data-team="away" type="number" min="0" max="10" value="${prediction.awayGoals}" ${canPredict ? '' : 'disabled'} oninput="this.value = Math.min(10, Math.max(0, this.value))" />
     </div>
   `;
-
-  const [homeInput, awayInput, button] = row.querySelectorAll('input, button');
-  button?.addEventListener('click', async () => {
-    try {
-      const homeGoals = Number(homeInput.value);
-      const awayGoals = Number(awayInput.value);
-      if (!Number.isInteger(homeGoals) || !Number.isInteger(awayGoals) || homeGoals < 0 || awayGoals < 0) {
-        setMessage('Ingresá goles válidos (0 o más)', true); return;
-      }
-      await api(`/api/predictions/${match.id}`, { method:'POST', body:JSON.stringify({ homeGoals, awayGoals }) });
-      setMessage('Pronóstico guardado ✅');
-      await loadData();
-    } catch (e) { setMessage(e.message, true); }
-  });
 
   return row;
 }
@@ -321,6 +312,27 @@ function renderLeaderboard(rows) {
   });
 }
 
+function renderAdminMatches(matches) {
+  if (!adminMatchSelect) return;
+
+  adminMatchSelect.innerHTML = '<option value="">Selecciona un partido</option>';
+
+  matches.forEach((match) => {
+    const option = document.createElement('option');
+
+    const home = match.home || match.homeDesc || 'Por definir';
+    const away = match.away || match.awayDesc || 'Por definir';
+    const result = match.result
+      ? ` · Resultado: ${match.result.homeGoals}-${match.result.awayGoals}`
+      : ' · Sin resultado';
+
+    option.value = match.id;
+    option.textContent = `${match.id} · ${home} vs ${away}${result}`;
+
+    adminMatchSelect.appendChild(option);
+  });
+}
+
 // ── Data loading ──────────────────────────────────────────────────────────────
 async function loadData() {
   const [{ matches }, { leaderboard }, classData] = await Promise.all([
@@ -332,6 +344,7 @@ async function loadData() {
   renderKnockout(matches);
   renderClassification(classData);
   renderLeaderboard(leaderboard);
+  renderAdminMatches(matches);
 }
 
 async function refreshSession() {
@@ -370,6 +383,115 @@ loginForm.addEventListener('submit', async (e) => {
 logoutBtn.addEventListener('click', async () => {
   await api('/api/auth/logout', { method:'POST' });
   setMessage('Sesión cerrada'); await refreshSession();
+});
+
+document.addEventListener('click', async (e) => {
+  const esBotonGrupos = e.target.id === 'save-all-matches-btn';
+  const esBotonLlaves = e.target.id === 'save-all-knockout-btn';
+
+  if (!esBotonGrupos && !esBotonLlaves) return;
+
+  const contenedor = esBotonGrupos ? '#matches' : '#knockout';
+  const inputs = [...document.querySelectorAll(`${contenedor} .score-input:not(:disabled)`)];
+
+  const grouped = {};
+
+  inputs.forEach((input) => {
+    const matchId = input.dataset.matchId;
+    const team = input.dataset.team;
+
+    if (!grouped[matchId]) grouped[matchId] = {};
+    grouped[matchId][team] = input.value;
+  });
+
+  try {
+    let guardados = 0;
+
+    for (const [matchId, values] of Object.entries(grouped)) {
+      if (values.home === '' && values.away === '') continue;
+
+      if (values.home === '' || values.away === '') {
+        setMessage('Debes colocar ambos goles del partido', true);
+        return;
+      }
+
+      const homeGoals = Number(values.home);
+      const awayGoals = Number(values.away);
+
+      if (
+        !Number.isInteger(homeGoals) ||
+        !Number.isInteger(awayGoals) ||
+        homeGoals < 0 ||
+        awayGoals < 0 ||
+        homeGoals > 10 ||
+        awayGoals > 10
+      ) {
+        setMessage('Los goles deben estar entre 0 y 10', true);
+        return;
+      }
+
+      await api(`/api/predictions/${matchId}`, {
+        method: 'POST',
+        body: JSON.stringify({ homeGoals, awayGoals })
+      });
+
+      guardados++;
+    }
+
+    if (guardados === 0) {
+      setMessage('No hay pronósticos para guardar', true);
+      return;
+    }
+
+    setMessage(`${guardados} pronóstico(s) guardado(s) o actualizado(s) ✅`);
+    await loadData();
+
+  } catch (e) {
+    setMessage(e.message, true);
+  }
+});
+
+adminResultForm?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const fd = new FormData(adminResultForm);
+  const secret = fd.get('secret');
+  const matchId = fd.get('matchId');
+  const homeGoals = Number(fd.get('homeGoals'));
+  const awayGoals = Number(fd.get('awayGoals'));
+
+  if (!matchId) {
+    setMessage('Debes seleccionar un partido', true);
+    return;
+  }
+
+  if (
+    !Number.isInteger(homeGoals) ||
+    !Number.isInteger(awayGoals) ||
+    homeGoals < 0 ||
+    awayGoals < 0 ||
+    homeGoals > 10 ||
+    awayGoals > 10
+  ) {
+    setMessage('El resultado debe tener goles entre 0 y 10', true);
+    return;
+  }
+
+  try {
+    await api(`/api/admin/matches/${matchId}/result`, {
+      method: 'POST',
+      headers: {
+        'x-admin-secret': secret
+      },
+      body: JSON.stringify({ homeGoals, awayGoals })
+    });
+
+    setMessage('Resultado oficial guardado ✅');
+    adminResultForm.reset();
+    await loadData();
+  } catch (e) {
+    setMessage(e.message, true);
+  }
 });
 
 refreshSession();
