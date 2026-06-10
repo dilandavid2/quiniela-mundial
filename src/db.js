@@ -171,7 +171,8 @@ const defaultData = {
     final:    { teams: [], locked: false },
     champion: { team: null, locked: false }
   },
-  classificationPredictions: []
+  classificationPredictions: [],
+  predictions: []
 };
 
 function migrateDb(data) {
@@ -226,12 +227,13 @@ async function initDb() {
   );
 
   if (result.rows.length === 0) {
-    let initialData = defaultData;
+    let initialData = JSON.parse(JSON.stringify(defaultData));
 
     if (fs.existsSync(DATA_FILE)) {
       initialData = JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8'));
-      migrateDb(initialData);
     }
+
+    migrateDb(initialData);
 
     await pool.query(
       'INSERT INTO app_state (id, data) VALUES ($1, $2)',
