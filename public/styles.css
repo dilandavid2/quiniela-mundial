@@ -65,6 +65,52 @@ button.secondary {
   align-items: center;
 }
 
+.toolbar-user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* ── Avatares ─────────────────────────────────────────────────────────────── */
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+  letter-spacing: 0.02em;
+  user-select: none;
+}
+
+.avatar-sm {
+  width: 32px;
+  height: 32px;
+  font-size: 0.72rem;
+  border-radius: 7px;
+}
+
+.avatar-md {
+  width: 44px;
+  height: 44px;
+  font-size: 1rem;
+  border-radius: 10px;
+}
+
+.lb-player {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.lb-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .matches-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);

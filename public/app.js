@@ -55,6 +55,24 @@ const ROUND_CONFIG = [
 let activeRound = 'r32';
 let classificationData = null;
 
+// ── Avatares ───────────────────────────────────────────────────────────────────
+function avatarColor(name) {
+  const palette = [
+    '#dc2626','#d97706','#16a34a','#0284c7',
+    '#7c3aed','#db2777','#0891b2','#b45309',
+    '#4f46e5','#059669','#c2410c','#7e22ce'
+  ];
+  let hash = 0;
+  for (const ch of name) hash = (hash * 31 + ch.charCodeAt(0)) & 0xffff;
+  return palette[hash % palette.length];
+}
+
+function avatarHtml(name, cls = 'avatar') {
+  const initials = name.slice(0, 2).toUpperCase();
+  const bg = avatarColor(name);
+  return `<span class="${cls}" style="background:${bg}" title="${name}">${initials}</span>`;
+}
+
 function switchTab(tabName) {
   document.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'));
   document.querySelectorAll('.bnav-btn').forEach((b) => b.classList.remove('active'));
@@ -293,7 +311,7 @@ function renderLeaderboard(rows) {
     row.className = 'table-row';
     row.innerHTML = `
       <span>${index + 1}</span>
-      <span>${item.username}</span>
+      <span class="lb-player">${avatarHtml(item.username, 'avatar avatar-sm')}<span class="lb-name">${item.username}</span></span>
       <span><strong>${item.totalPoints} pts</strong></span>
       <span>${item.matchPoints ?? item.totalPoints}</span>
       <span>${item.classPoints ?? 0}</span>
@@ -322,6 +340,7 @@ async function refreshSession() {
     authSection.classList.add('hidden');
     appSection.classList.remove('hidden');
     welcomeEl.textContent = `Bienvenido, ${user.username}`;
+    document.getElementById('user-avatar').innerHTML = avatarHtml(user.username, 'avatar avatar-md');
     await loadData();
   } catch {
     authSection.classList.remove('hidden');
