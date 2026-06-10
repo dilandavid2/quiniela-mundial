@@ -2,6 +2,22 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
+require('dotenv').config();
+const { Pool } = require('pg');
+
+const USE_POSTGRES = !!process.env.DATABASE_URL;
+
+const pool = USE_POSTGRES
+  ? new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: process.env.NODE_ENV === 'production'
+        ? { rejectUnauthorized: false }
+        : false
+    })
+  : null;
+
+let dbCache = null;
+
 const DATA_DIR = path.join(__dirname, '..', 'data');
 const DATA_FILE = path.join(DATA_DIR, 'db.json');
 
@@ -190,26 +206,91 @@ function migrateDb(data) {
   return changed;
 }
 
-function ensureDb() {
+async function initDb() {
+  if (!USE_POSTGRES) {
+    ensureFileDb();
+    dbCache = readFileDb();
+    return;
+  }
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS app_state (
+      id TEXT PRIMARY KEY,
+      data JSONB NOT NULL
+    )
+  `);
+
+  const result = await pool.query(
+    'SELECT data FROM app_state WHERE id = $1',
+    ['main']
+  );
+
+  if (result.rows.length === 0) {
+    let initialData = defaultData;
+
+    if (fs.existsSync(DATA_FILE)) {
+      initialData = JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8'));
+      migrateDb(initialData);
+    }
+
+    await pool.query(
+      'INSERT INTO app_state (id, data) VALUES ($1, $2)',
+      ['main', initialData]
+    );
+
+    dbCache = initialData;
+  } else {
+    dbCache = result.rows[0].data;
+    const changed = migrateDb(dbCache);
+    if (changed) await writeDb(dbCache);
+  }
+}
+
+function ensureFileDb() {
   if (!fs.existsSync(DATA_DIR)) {
     fs.mkdirSync(DATA_DIR, { recursive: true });
   }
+
   if (!fs.existsSync(DATA_FILE)) {
     fs.writeFileSync(DATA_FILE, JSON.stringify(defaultData, null, 2), 'utf-8');
   }
 }
 
-function readDb() {
-  ensureDb();
+function readFileDb() {
+  ensureFileDb();
   const raw = fs.readFileSync(DATA_FILE, 'utf-8');
   const data = JSON.parse(raw);
   const changed = migrateDb(data);
-  if (changed) writeDb(data);
+  if (changed) writeFileDb(data);
   return data;
 }
 
-function writeDb(data) {
+function writeFileDb(data) {
   fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf-8');
+}
+
+function readDb() {
+  if (!dbCache) {
+    dbCache = readFileDb();
+  }
+
+  return dbCache;
+}
+
+function writeDb(data) {
+  dbCache = data;
+
+  if (!USE_POSTGRES) {
+    writeFileDb(data);
+    return;
+  }
+
+  pool.query(
+    'UPDATE app_state SET data = $2 WHERE id = $1',
+    ['main', data]
+  ).catch((error) => {
+    console.error('Error guardando en PostgreSQL:', error);
+  });
 }
 
 function createId() {
@@ -217,6 +298,7 @@ function createId() {
 }
 
 module.exports = {
+  initDb,
   readDb,
   writeDb,
   createId,

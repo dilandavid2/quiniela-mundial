@@ -2,7 +2,7 @@ const path = require('path');
 const express = require('express');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
-const { readDb, writeDb, createId } = require('./db');
+const { initDb, readDb, writeDb, createId } = require('./db');
 const { calculatePoints, calculateClassificationPoints } = require('./scoring');
 
 const app = express();
@@ -353,6 +353,13 @@ app.post('/api/classification/:round', requireAuth, (req, res) => {
   return res.json({ ok: true });
 });
 
-app.listen(PORT, () => {
-  console.log(`Quiniela Mundial escuchando en http://localhost:${PORT}`);
-});
+initDb()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`Quiniela Mundial escuchando en http://localhost:${PORT}`);
+    });
+  })
+  .catch((error) => {
+    console.error('Error iniciando la base de datos:', error);
+    process.exit(1);
+  });
