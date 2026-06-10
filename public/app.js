@@ -87,7 +87,7 @@ function buildMatchCard(match) {
 
   const kickoff = new Date(match.kickoff).toLocaleString('es-AR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
   const prediction = match.prediction || { homeGoals:'', awayGoals:'' };
-  const locked = Date.now() >= new Date(match.matchDayStart).getTime();
+  const locked = Date.now() >= new Date(match.lockoutAt).getTime();
   const hasTeams = match.home && match.away;
   const resultText = match.result ? `${match.result.homeGoals}-${match.result.awayGoals}` : 'pendiente';
   const pointsText = match.points === null ? '' : ` · <strong>${match.points} pts</strong> (${match.pointsReason})`;

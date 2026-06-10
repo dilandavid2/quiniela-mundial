@@ -115,8 +115,8 @@ app.get('/api/matches', requireAuth, (req, res) => {
       (item) => item.userId === user.id && item.matchId === match.id
     );
 
-    const kickoffDayStart = new Date(match.kickoff);
-    kickoffDayStart.setHours(0, 0, 0, 0);
+    // lockoutAt = 1 hora antes del kickoff (UTC puro, funciona igual en todos los países)
+    const lockoutAt = new Date(new Date(match.kickoff).getTime() - 60 * 60 * 1000).toISOString();
     // Solo calcular puntos si el partido tiene resultado Y equipos reales definidos
     const hasTeams = match.home && match.away;
     const pointsInfo = (match.result && hasTeams)
@@ -131,7 +131,7 @@ app.get('/api/matches', requireAuth, (req, res) => {
       home: match.home,
       away: match.away,
       kickoff: match.kickoff,
-      matchDayStart: kickoffDayStart.toISOString(),
+      lockoutAt,
       result: match.result,
       prediction: prediction
         ? { homeGoals: prediction.homeGoals, awayGoals: prediction.awayGoals }
@@ -167,10 +167,10 @@ app.post('/api/predictions/:matchId', requireAuth, (req, res) => {
     return res.status(400).json({ error: 'Los equipos de este partido aún no están definidos' });
   }
 
-  const kickoffDay = new Date(match.kickoff);
-  kickoffDay.setHours(0, 0, 0, 0);
-  if (Date.now() >= kickoffDay.getTime()) {
-    return res.status(400).json({ error: 'El día del partido ya comenzó, no se puede editar el pronóstico' });
+  // Bloquear 1 hora antes del kickoff (UTC)
+  const lockoutAt = new Date(match.kickoff).getTime() - 60 * 60 * 1000;
+  if (Date.now() >= lockoutAt) {
+    return res.status(400).json({ error: 'El cierre de pronósticos fue 1 hora antes del partido' });
   }
 
   const existing = db.predictions.find(
