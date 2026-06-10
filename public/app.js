@@ -55,13 +55,21 @@ const ROUND_CONFIG = [
 let activeRound = 'r32';
 let classificationData = null;
 
+function switchTab(tabName) {
+  document.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'));
+  document.querySelectorAll('.bnav-btn').forEach((b) => b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach((p) => p.classList.add('hidden'));
+  document.querySelectorAll(`.tab-btn[data-tab="${tabName}"]`).forEach((b) => b.classList.add('active'));
+  document.querySelectorAll(`.bnav-btn[data-tab="${tabName}"]`).forEach((b) => b.classList.add('active'));
+  document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+}
+
 document.querySelectorAll('.tab-btn').forEach((btn) => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'));
-    document.querySelectorAll('.tab-panel').forEach((p) => p.classList.add('hidden'));
-    btn.classList.add('active');
-    document.getElementById(`tab-${btn.dataset.tab}`).classList.remove('hidden');
-  });
+  btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+});
+
+document.querySelectorAll('.bnav-btn').forEach((btn) => {
+  btn.addEventListener('click', () => switchTab(btn.dataset.tab));
 });
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
