@@ -3,31 +3,37 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Quiniela Mundial</title>
+    <title>DiazBet</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
-    <main class="container">
-      <h1>⚽ Quiniela Mundial</h1>
-      <p id="message" class="message"></p>
 
-      <section id="auth-section" class="card">
-        <h2>Ingreso</h2>
+    <!-- Toast de notificación global -->
+    <div id="message" class="message-toast hidden"></div>
+
+    <!-- ── PANTALLA DE ACCESO ───────────────────────────────────── -->
+    <section id="auth-section">
+      <div class="auth-logo">
+        <div class="logo-emoji">🎯</div>
+        <h1>DiazBet</h1>
+        <p class="muted">Mundial 2026</p>
+      </div>
+
+      <div class="auth-card">
         <div class="auth-switcher">
           <button id="new-user-mode-btn" type="button" class="auth-mode-btn active">Nuevo usuario</button>
-          <button id="registered-user-mode-btn" type="button" class="auth-mode-btn">Usuario registrado</button>
+          <button id="registered-user-mode-btn" type="button" class="auth-mode-btn">Ya tengo acceso</button>
         </div>
 
         <div id="new-user-panel" class="auth-panel">
-          <p class="muted">Selecciona tu usuario pre cargado y completa tu acceso.</p>
+          <p class="muted">Selecciona tu nombre de la lista</p>
           <div id="preloaded-users" class="preloaded-users"></div>
-
           <form id="new-user-form" class="hidden mini-auth-form">
             <p id="new-user-selection" class="selected-user muted">Ningún usuario seleccionado</p>
             <input type="hidden" name="username" id="new-user-username" />
-            <input name="password" type="password" placeholder="Contraseña" required minlength="4" />
+            <input name="password" type="password" placeholder="Contraseña (mín. 4 caracteres)" required minlength="4" />
             <select name="country" id="new-user-country" required>
-              <option value="">País de preferencia</option>
+              <option value="">País favorito</option>
             </select>
             <button type="submit">Crear acceso</button>
           </form>
@@ -35,96 +41,124 @@
 
         <div id="registered-user-panel" class="auth-panel hidden">
           <form id="login-form" class="mini-auth-form">
-            <p class="muted">Ingresa con tu usuario y contraseña ya registrados.</p>
-            <input name="username" placeholder="Usuario" required />
-            <input name="password" type="password" placeholder="Contraseña" required />
+            <p class="muted">Ingresa con tu usuario y contraseña.</p>
+            <input name="username" placeholder="Usuario" required autocomplete="username" />
+            <input name="password" type="password" placeholder="Contraseña" required autocomplete="current-password" />
             <button type="submit">Entrar</button>
           </form>
         </div>
-      </section>
+      </div>
+    </section>
 
-      <section id="app-section" class="hidden">
-        <div class="toolbar card">
-          <div class="toolbar-user">
-            <span id="user-avatar"></span>
-            <div>
-              <strong id="welcome"></strong>
-              <p class="muted">Exacto 7 · Resultado 3 · Un gol 1 · Clasificación: 2/4/6/8/10/15 pts</p>
-            </div>
-          </div>
-          <button id="logout-btn" class="secondary">Salir</button>
+    <!-- ── APP PRINCIPAL ──────────────────────────────────────────── -->
+    <section id="app-section" class="hidden">
+
+      <!-- Header fijo -->
+      <header class="app-header">
+        <div class="header-logo">🎯 <strong>DiazBet</strong></div>
+        <div class="header-right">
+          <div id="user-avatar"></div>
+          <button id="admin-btn" class="btn-admin">Admin</button>
         </div>
+      </header>
 
-        <div class="tabs">
-          <button class="tab-btn active" data-tab="matches">⚽ Fase de Grupos</button>
-          <button class="tab-btn" data-tab="knockout">⚔️ Llaves</button>
-          <button class="tab-btn" data-tab="classification">🏆 Clasificación</button>
-          <button class="tab-btn" data-tab="leaderboard">📊 Tabla</button>
-          <button class="tab-btn" data-tab="admin">🛠️ Admin</button>
-        </div>
+      <!-- Contenido principal -->
+      <main class="app-content">
 
-        <section class="tab-panel" id="tab-matches">
-          <div class="card">
-            <h2>Mis pronósticos – Fase de Grupos</h2>
-            <button id="save-all-matches-btn" style="margin-bottom:14px">Guardar todos los pronósticos</button>
-            <div id="matches"></div>
-          </div>
+        <!-- Partidos (grupos + llaves) -->
+        <section class="tab-panel" id="tab-partidos">
+          <div id="matches"></div>
+          <div id="knockout"></div>
         </section>
 
-        <section class="tab-panel hidden" id="tab-knockout">
-          <div class="card">
-            <h2>Fases Eliminatorias</h2>
-            <button id="save-all-knockout-btn" style="margin-bottom:14px">Guardar pronósticos de llaves</button>
-            <div id="knockout"></div>
-          </div>
-        </section>
-
+        <!-- Clasificación -->
         <section class="tab-panel hidden" id="tab-classification">
-          <div class="card">
-            <h2>¿Quiénes clasifican a cada ronda?</h2>
-            <p class="muted">Seleccioná los equipos que creés que avanzan. Puntos: 16avos 2 · 8avos 4 · Cuartos 6 · Semis 8 · Final 10 · Campeón 15</p>
-            <div class="round-tabs" id="round-tabs"></div>
-            <div id="classification-teams"></div>
-            <button id="save-classification-btn" style="margin-top:12px">Guardar pronóstico de clasificación</button>
+          <div class="section-header">
+            <h2>Clasificación de rondas</h2>
+            <p class="muted">16avos 2 · 8avos 4 · Cuartos 6 · Semis 8 · Final 10 · Campeón 15 pts</p>
           </div>
+          <div class="round-tabs" id="round-tabs"></div>
+          <div id="classification-teams"></div>
+          <button id="save-classification-btn" style="margin-top:16px">Guardar clasificación</button>
         </section>
 
+        <!-- Usuarios (leaderboard) -->
         <section class="tab-panel hidden" id="tab-leaderboard">
-          <div class="card">
+          <div class="section-header">
             <h2>Tabla de posiciones</h2>
-
-            <div class="table-wrapper">
-              <div id="leaderboard"></div>
-            </div>
-
+          </div>
+          <div class="table-wrapper">
+            <div id="leaderboard"></div>
           </div>
         </section>
 
-        <section class="tab-panel hidden" id="tab-admin">
-          <div class="card">
-            <h2>Panel administrador</h2>
-            <p class="muted">Carga resultados oficiales de los partidos.</p>
-
-            <form id="admin-result-form">
-              <input name="secret" type="password" placeholder="Clave admin" required />
-
-              <select name="matchId" required id="admin-match-select">
-                <option value="">Selecciona un partido</option>
-              </select>
-
-              <div class="row-actions">
-                <input name="homeGoals" class="score-input" type="number" min="0" max="10" placeholder="Local" required />
-                <span>-</span>
-                <input name="awayGoals" class="score-input" type="number" min="0" max="10" placeholder="Visitante" required />
+        <!-- Perfil -->
+        <section class="tab-panel hidden" id="tab-perfil">
+          <div class="profile-card">
+            <div id="profile-avatar" class="profile-avatar-wrap"></div>
+            <div id="profile-username" class="profile-username"></div>
+            <div id="profile-country" class="muted"></div>
+            <div class="scoring-legend">
+              <p><strong>Sistema de puntos</strong></p>
+              <div class="legend-grid">
+                <span>Marcador exacto</span><span class="pts">7 pts</span>
+                <span>Resultado correcto</span><span class="pts">3 pts</span>
+                <span>Un gol acertado</span><span class="pts">1 pt</span>
+                <span>Clasificación</span><span class="pts">2–15 pts</span>
               </div>
-
-              <button type="submit">Guardar resultado oficial</button>
-            </form>
+            </div>
+            <button id="logout-btn" class="btn-logout">Cerrar sesión</button>
           </div>
         </section>
-      </section>
 
-    </main>
+      </main>
+
+      <!-- Botón guardar flotante -->
+      <button id="fab-save" class="fab-save hidden">💾 Guardar</button>
+
+      <!-- Modal admin -->
+      <div id="admin-modal" class="modal-overlay hidden">
+        <div class="modal-card">
+          <div class="modal-header">
+            <h3>Panel Admin</h3>
+            <button id="admin-modal-close" class="btn-icon">✕</button>
+          </div>
+          <form id="admin-result-form">
+            <input name="secret" type="password" placeholder="Clave admin" required />
+            <select name="matchId" required id="admin-match-select">
+              <option value="">Selecciona un partido</option>
+            </select>
+            <div class="score-row">
+              <input name="homeGoals" class="score-input" type="number" min="0" max="10" placeholder="Local" required />
+              <span class="vs-sep">–</span>
+              <input name="awayGoals" class="score-input" type="number" min="0" max="10" placeholder="Visit." required />
+            </div>
+            <button type="submit" style="margin-top:4px">Guardar resultado</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Navegación inferior fija -->
+      <nav class="bottom-nav">
+        <button class="bnav-btn active" data-tab="partidos">
+          <span class="bnav-icon">⚽</span>
+          <span class="bnav-label">Partidos</span>
+        </button>
+        <button class="bnav-btn" data-tab="classification">
+          <span class="bnav-icon">🏆</span>
+          <span class="bnav-label">Clasificación</span>
+        </button>
+        <button class="bnav-btn" data-tab="leaderboard">
+          <span class="bnav-icon">👥</span>
+          <span class="bnav-label">Usuarios</span>
+        </button>
+        <button class="bnav-btn" data-tab="perfil">
+          <span class="bnav-icon">👤</span>
+          <span class="bnav-label">Perfil</span>
+        </button>
+      </nav>
+
+    </section>
 
     <script src="/app.js"></script>
   </body>

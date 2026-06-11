@@ -7,6 +7,7 @@ const { calculatePoints, calculateClassificationPoints } = require('./scoring');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const PREDICTION_LOCKOUT_MINUTES = 5;
 
 app.use(express.json());
 app.use(
@@ -135,8 +136,10 @@ app.get('/api/matches', requireAuth, (req, res) => {
       (item) => item.userId === user.id && item.matchId === match.id
     );
 
-    // lockoutAt = 1 hora antes del kickoff (UTC puro, funciona igual en todos los países)
-    const lockoutAt = new Date(new Date(match.kickoff).getTime() - 60 * 60 * 1000).toISOString();
+    // lockoutAt = 5 minutos antes del kickoff (UTC puro, funciona igual en todos los países)
+    const lockoutAt = new Date(
+      new Date(match.kickoff).getTime() - PREDICTION_LOCKOUT_MINUTES * 60 * 1000
+    ).toISOString();
     // Solo calcular puntos si el partido tiene resultado Y equipos reales definidos
     const hasTeams = match.home && match.away;
     const pointsInfo = (match.result && hasTeams)
@@ -199,10 +202,12 @@ app.post('/api/predictions/:matchId', requireAuth, (req, res) => {
     return res.status(400).json({ error: 'Los equipos de este partido aún no están definidos' });
   }
 
-  // Bloquear 1 hora antes del kickoff (UTC)
-  const lockoutAt = new Date(match.kickoff).getTime() - 60 * 60 * 1000;
+  // Bloquear 5 minutos antes del kickoff (UTC)
+  const lockoutAt = new Date(match.kickoff).getTime() - PREDICTION_LOCKOUT_MINUTES * 60 * 1000;
   if (Date.now() >= lockoutAt) {
-    return res.status(400).json({ error: 'El cierre de pronósticos fue 1 hora antes del partido' });
+    return res.status(400).json({
+      error: `El cierre de pronósticos es ${PREDICTION_LOCKOUT_MINUTES} minutos antes del partido`
+    });
   }
 
   const existing = db.predictions.find(

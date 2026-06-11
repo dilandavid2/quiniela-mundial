@@ -1,7 +1,6 @@
 const authSection = document.getElementById('auth-section');
 const appSection = document.getElementById('app-section');
 const messageEl = document.getElementById('message');
-const welcomeEl = document.getElementById('welcome');
 const matchesEl = document.getElementById('matches');
 const knockoutEl = document.getElementById('knockout');
 const leaderboardEl = document.getElementById('leaderboard');
@@ -125,26 +124,25 @@ function avatarHtml(name, cls = 'avatar') {
 }
 
 function switchTab(tabName) {
-  document.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'));
   document.querySelectorAll('.bnav-btn').forEach((b) => b.classList.remove('active'));
   document.querySelectorAll('.tab-panel').forEach((p) => p.classList.add('hidden'));
-  document.querySelectorAll(`.tab-btn[data-tab="${tabName}"]`).forEach((b) => b.classList.add('active'));
   document.querySelectorAll(`.bnav-btn[data-tab="${tabName}"]`).forEach((b) => b.classList.add('active'));
-  document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+  const panel = document.getElementById(`tab-${tabName}`);
+  if (panel) panel.classList.remove('hidden');
 }
-
-document.querySelectorAll('.tab-btn').forEach((btn) => {
-  btn.addEventListener('click', () => switchTab(btn.dataset.tab));
-});
 
 document.querySelectorAll('.bnav-btn').forEach((btn) => {
   btn.addEventListener('click', () => switchTab(btn.dataset.tab));
 });
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+let _msgTimer;
 function setMessage(msg, isError = false) {
   messageEl.textContent = msg;
-  messageEl.style.color = isError ? '#f87171' : '#22c55e';
+  messageEl.style.color = isError ? '#ef4444' : '#22c55e';
+  messageEl.classList.remove('hidden');
+  clearTimeout(_msgTimer);
+  _msgTimer = setTimeout(() => messageEl.classList.add('hidden'), 3500);
 }
 
 function setAuthMode(mode) {
@@ -280,7 +278,7 @@ function renderKnockout(matches) {
     const phaseMatches = matches.filter((m) => ids.includes(m.id));
     if (!phaseMatches.length) return;
     const h = document.createElement('h3');
-    h.className = 'date-header';
+    h.className = 'phase-header';
     h.textContent = label;
     knockoutEl.appendChild(h);
     const grid = document.createElement('div');
@@ -646,10 +644,15 @@ async function refreshSession() {
     const { user } = await api('/api/auth/me');
     authSection.classList.add('hidden');
     appSection.classList.remove('hidden');
-    welcomeEl.textContent = user.country
-      ? `Bienvenido, ${user.username} · ${user.country}`
-      : `Bienvenido, ${user.username}`;
-    document.getElementById('user-avatar').innerHTML = avatarHtml(user.username, 'avatar avatar-md');
+    // Avatar pequeno en el header
+    document.getElementById('user-avatar').innerHTML = avatarHtml(user.username, 'avatar avatar-sm');
+    // Datos del perfil
+    const profileAvatar = document.getElementById('profile-avatar');
+    const profileUsername = document.getElementById('profile-username');
+    const profileCountry = document.getElementById('profile-country');
+    if (profileAvatar) profileAvatar.innerHTML = avatarHtml(user.username, 'avatar avatar-lg');
+    if (profileUsername) profileUsername.textContent = user.username;
+    if (profileCountry) profileCountry.textContent = user.country ? `🌍 ${user.country}` : '';
     await loadData();
   } catch {
     authSection.classList.remove('hidden');
@@ -697,71 +700,56 @@ logoutBtn.addEventListener('click', async () => {
   setMessage('Sesión cerrada'); await refreshSession();
 });
 
-document.addEventListener('click', async (e) => {
-  const esBotonGrupos = e.target.id === 'save-all-matches-btn';
-  const esBotonLlaves = e.target.id === 'save-all-knockout-btn';
-
-  if (!esBotonGrupos && !esBotonLlaves) return;
-
-  const contenedor = esBotonGrupos ? '#matches' : '#knockout';
-  const inputs = [...document.querySelectorAll(`${contenedor} .score-input:not(:disabled)`)];
-
+// ── FAB: guardar todos los pronósticos pendientes ────────────────────────────────────
+document.getElementById('fab-save')?.addEventListener('click', async () => {
+  const inputs = [...document.querySelectorAll('.score-input:not(:disabled)')];
   const grouped = {};
-
-  inputs.forEach((input) => {
-    const matchId = input.dataset.matchId;
-    const team = input.dataset.team;
-
+  inputs.forEach((inp) => {
+    const matchId = inp.dataset.matchId;
     if (!grouped[matchId]) grouped[matchId] = {};
-    grouped[matchId][team] = input.value;
+    grouped[matchId][inp.dataset.team] = inp.value;
   });
-
   try {
     let guardados = 0;
-
     for (const [matchId, values] of Object.entries(grouped)) {
       if (values.home === '' && values.away === '') continue;
-
       if (values.home === '' || values.away === '') {
-        setMessage('Debes colocar ambos goles del partido', true);
+        setMessage('Completa ambos goles del partido', true);
         return;
       }
-
       const homeGoals = Number(values.home);
       const awayGoals = Number(values.away);
-
-      if (
-        !Number.isInteger(homeGoals) ||
-        !Number.isInteger(awayGoals) ||
-        homeGoals < 0 ||
-        awayGoals < 0 ||
-        homeGoals > 10 ||
-        awayGoals > 10
-      ) {
+      if (!Number.isInteger(homeGoals) || !Number.isInteger(awayGoals) ||
+          homeGoals < 0 || awayGoals < 0 || homeGoals > 10 || awayGoals > 10) {
         setMessage('Los goles deben estar entre 0 y 10', true);
         return;
       }
-
       await api(`/api/predictions/${matchId}`, {
         method: 'POST',
         body: JSON.stringify({ homeGoals, awayGoals })
       });
-
       guardados++;
     }
-
-    if (guardados === 0) {
-      setMessage('No hay pronósticos para guardar', true);
-      return;
-    }
-
-    setMessage(`${guardados} pronóstico(s) guardado(s) o actualizado(s) ✅`);
+    if (guardados === 0) { setMessage('No hay pronósticos para guardar', true); return; }
+    setMessage(`${guardados} pronóstico(s) guardado(s) ✅`);
     await loadData();
-
   } catch (e) {
     setMessage(e.message, true);
   }
 });
+
+// ── Modal admin ────────────────────────────────────────────────────────────────
+const adminModal = document.getElementById('admin-modal');
+document.getElementById('admin-btn')?.addEventListener('click', () => {
+  adminModal?.classList.remove('hidden');
+});
+document.getElementById('admin-modal-close')?.addEventListener('click', () => {
+  adminModal?.classList.add('hidden');
+});
+adminModal?.addEventListener('click', (e) => {
+  if (e.target === adminModal) adminModal.classList.add('hidden');
+});
+
 
 adminResultForm?.addEventListener('submit', async (e) => {
   e.preventDefault();
