@@ -103,6 +103,7 @@ const ROUND_CONFIG = [
 let activeRound = 'r32';
 let classificationData = null;
 let selectedPreloadedUser = '';
+let registeredUsernames = new Set();
 const COUNTRY_OPTIONS = [...new Set(Object.values(ALL_TEAMS_BY_GROUP).flat())];
 
 // ── Avatares ───────────────────────────────────────────────────────────────────
@@ -165,8 +166,12 @@ function renderCountryOptions() {
 
 function renderPreloadedUsers() {
   preloadedUsersEl.innerHTML = '';
-
-  PRELOADED_USERNAMES.forEach((username) => {
+  const available = PRELOADED_USERNAMES.filter(u => !registeredUsernames.has(u.toLowerCase()));
+  if (!available.length) {
+    preloadedUsersEl.innerHTML = '<p class="muted" style="text-align:center">Todos los usuarios ya se registraron.</p>';
+    return;
+  }
+  available.forEach((username) => {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = `preloaded-user-btn${selectedPreloadedUser === username ? ' selected' : ''}`;
@@ -204,36 +209,76 @@ async function api(path, options = {}) {
 
 // ── Tarjeta de partido ────────────────────────────────────────────────────────
 function buildMatchCard(match) {
-  const row = document.createElement('div');
-  row.className = 'match-row';
+  const card = document.createElement('div');
+  card.className = 'match-card';
 
-  const kickoff = new Date(match.kickoff).toLocaleString('es-AR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
-  const prediction = match.prediction || { homeGoals:'', awayGoals:'' };
+  const prediction = match.prediction || { homeGoals: '', awayGoals: '' };
   const locked = Boolean(match.locked) || Date.now() >= new Date(match.lockoutAt).getTime();
   const hasTeams = match.home && match.away;
-  const resultText = match.result ? `${match.result.homeGoals}-${match.result.awayGoals}` : 'pendiente';
-  const lockText = match.locked ? ' · 🔒 bloqueado' : '';
-  const pointsText = match.points === null ? '' : ` · <strong>${match.points} pts</strong> (${match.pointsReason})`;
-  const metaLabel = match.group ? `Grupo ${match.group}` : (match.homeDesc ? `${match.homeDesc} vs ${match.awayDesc}` : '');
-  const homeLabel = hasTeams ? `${flag(match.home)} ${match.home}` : (match.homeDesc || 'Por definir');
-  const awayLabel = hasTeams ? `${flag(match.away)} ${match.away}` : (match.awayDesc || 'Por definir');
   const canPredict = hasTeams && !locked;
 
-  row.innerHTML = `
-    <div class="match-meta">${metaLabel} · ${kickoff}h · ${resultText}${lockText}${pointsText}</div>
-    <div class="match-teams">
-      <span class="team">${homeLabel}</span>
-      <span class="vs">vs</span>
-      <span class="team">${awayLabel}</span>
+  const kickoff = new Date(match.kickoff).toLocaleString('es-AR', {
+    day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
+  });
+
+  const badge = match.group
+    ? `Grupo ${match.group}`
+    : (match.homeDesc ? `${match.homeDesc} vs ${match.awayDesc}` : (match.phase || ''));
+  const lockIcon = match.locked ? ' 🔒' : '';
+
+  const homeLabel = hasTeams ? match.home : (match.homeDesc || 'Por definir');
+  const awayLabel = hasTeams ? match.away : (match.awayDesc || 'Por definir');
+  const homeFlag  = hasTeams ? flag(match.home)  : '🏳️';
+  const awayFlag  = hasTeams ? flag(match.away)  : '🏳️';
+
+  const homeVal = (prediction.homeGoals !== '' && prediction.homeGoals !== undefined) ? prediction.homeGoals : '';
+  const awayVal = (prediction.awayGoals !== '' && prediction.awayGoals !== undefined) ? prediction.awayGoals : '';
+
+  const resultHtml = match.result
+    ? `<span class="result-badge">${match.result.homeGoals} – ${match.result.awayGoals}</span>`
+    : '';
+
+  const inputsHtml = canPredict
+    ? `<div class="score-inputs">
+        <input class="score-input" data-match-id="${match.id}" data-team="home"
+          type="number" min="0" max="10" value="${homeVal}"
+          oninput="this.value=Math.min(10,Math.max(0,+this.value||0));" />
+        <span class="vs-sep">–</span>
+        <input class="score-input" data-match-id="${match.id}" data-team="away"
+          type="number" min="0" max="10" value="${awayVal}"
+          oninput="this.value=Math.min(10,Math.max(0,+this.value||0));" />
+      </div>`
+    : (homeVal !== ''
+        ? `<span class="result-badge" style="color:var(--accent-light)">${homeVal} – ${awayVal}</span>`
+        : `<span class="vs-sep" style="font-size:1.4rem">–</span>`);
+
+  const pointsHtml = (match.points !== null && match.points !== undefined)
+    ? `<div class="match-points-row"><span class="pts-badge">${match.points} pts</span>${match.pointsReason}</div>`
+    : '';
+
+  card.innerHTML = `
+    <div class="match-meta-top">
+      <span class="match-phase-badge">${badge}${lockIcon}</span>
+      <span class="match-time">${kickoff}h</span>
     </div>
-    <div class="row-actions">
-      <input class="score-input" data-match-id="${match.id}" data-team="home" type="number" min="0" max="10" value="${prediction.homeGoals}" ${canPredict ? '' : 'disabled'} oninput="this.value = Math.min(10, Math.max(0, this.value))" />
-      <span>-</span>
-      <input class="score-input" data-match-id="${match.id}" data-team="away" type="number" min="0" max="10" value="${prediction.awayGoals}" ${canPredict ? '' : 'disabled'} oninput="this.value = Math.min(10, Math.max(0, this.value))" />
+    <div class="match-teams-row">
+      <div class="match-team-block">
+        <span class="team-flag">${homeFlag}</span>
+        <span class="team-name">${homeLabel}</span>
+      </div>
+      <div class="match-center">
+        ${resultHtml}
+        ${inputsHtml}
+      </div>
+      <div class="match-team-block">
+        <span class="team-flag">${awayFlag}</span>
+        <span class="team-name">${awayLabel}</span>
+      </div>
     </div>
+    ${pointsHtml}
   `;
 
-  return row;
+  return card;
 }
 
 // ── Render: Fase de grupos ────────────────────────────────────────────────────
@@ -288,47 +333,67 @@ function renderKnockout(matches) {
   });
 }
 
-// ── Render: Clasificación ─────────────────────────────────────────────────────
-function renderClassification(data) {
-  classificationData = data;
-  const { advancement, predictions } = data;
+// ── Render: Grupos del Mundial ────────────────────────────────────────────────
+function renderGroupStandings(matches) {
+  const el = document.getElementById('group-standings');
+  if (!el) return;
+  el.innerHTML = '';
 
-  const roundTabsEl = document.getElementById('round-tabs');
-  roundTabsEl.innerHTML = '';
-  ROUND_CONFIG.forEach(({ key, label, pts }) => {
-    const btn = document.createElement('button');
-    const adv = advancement[key];
-    const locked = adv && adv.locked;
-    btn.className = `round-tab-btn${key === activeRound ? ' active' : ''}`;
-    btn.textContent = `${label} (${pts} pts)${locked ? ' 🔒' : ''}`;
-    btn.addEventListener('click', () => {
-      activeRound = key;
-      document.querySelectorAll('.round-tab-btn').forEach((b) => b.classList.remove('active'));
-      btn.classList.add('active');
-      renderClassificationTeams(advancement, predictions);
-    });
-    roundTabsEl.appendChild(btn);
+  // Inicializar tabla con todos los equipos
+  const standings = {};
+  Object.entries(ALL_TEAMS_BY_GROUP).forEach(([grp, teams]) => {
+    standings[grp] = {};
+    teams.forEach(t => { standings[grp][t] = { pj:0, g:0, e:0, p:0, gf:0, gc:0 }; });
   });
 
-  renderClassificationTeams(advancement, predictions);
+  // Acumular resultados de partidos jugados
+  matches.filter(m => m.phase === 'group' && m.home && m.away && m.result).forEach(match => {
+    const grp = match.group;
+    if (!standings[grp]) return;
+    const { homeGoals, awayGoals } = match.result;
+    const hm = standings[grp][match.home];
+    const aw = standings[grp][match.away];
+    if (!hm || !aw) return;
+    hm.pj++; hm.gf += homeGoals; hm.gc += awayGoals;
+    aw.pj++; aw.gf += awayGoals; aw.gc += homeGoals;
+    if (homeGoals > awayGoals)      { hm.g++; aw.p++; }
+    else if (homeGoals < awayGoals) { aw.g++; hm.p++; }
+    else                            { hm.e++; aw.e++; }
+  });
 
-  document.getElementById('save-classification-btn').onclick = async () => {
-    const adv = advancement[activeRound];
-    if (adv && adv.locked) { setMessage('Esta ronda ya está cerrada 🔒', true); return; }
-    const selected = activeRound === 'r32'
-      ? getR32SelectedTeams()
-      : [...document.querySelectorAll('.team-chip.selected')].map((el) => el.dataset.team);
-    if (selected.length !== ROUND_CONFIG.find((r) => r.key === activeRound).count) {
-      const rc = ROUND_CONFIG.find((r) => r.key === activeRound);
-      setMessage(`Debes seleccionar exactamente ${rc.count} equipo(s)`, true);
-      return;
-    }
-    try {
-      await api(`/api/classification/${activeRound}`, { method:'POST', body:JSON.stringify({ teams: selected }) });
-      setMessage(`Clasificación guardada ✅`);
-      await loadData();
-    } catch (e) { setMessage(e.message, true); }
-  };
+  // Renderizar cada grupo ordenado por pts > DG > GF
+  Object.entries(standings).forEach(([grp, teams]) => {
+    const rows = Object.entries(teams).sort(([, a], [, b]) => {
+      const pA = a.g*3+a.e, pB = b.g*3+b.e;
+      const dA = a.gf-a.gc, dB = b.gf-b.gc;
+      return pB-pA || dB-dA || b.gf-a.gf;
+    });
+
+    const wrap = document.createElement('div');
+    wrap.className = 'group-section';
+    wrap.innerHTML = `
+      <div class="group-title">Grupo ${grp}</div>
+      <div class="group-table">
+        <div class="gt-row gt-header">
+          <span class="gt-team">Equipo</span>
+          <span>PJ</span><span>G</span><span>E</span><span>P</span>
+          <span>GF</span><span>GC</span><span>DG</span><span class="gt-pts">Pts</span>
+        </div>
+        ${rows.map(([team, s], i) => {
+          const pts = s.g*3+s.e;
+          const dg  = s.gf-s.gc;
+          const cls = i < 2 ? 'qualifies' : i === 2 ? 'third' : '';
+          return `<div class="gt-row ${cls}">
+            <span class="gt-team">${flag(team)} ${team}</span>
+            <span>${s.pj}</span><span>${s.g}</span><span>${s.e}</span><span>${s.p}</span>
+            <span>${s.gf}</span><span>${s.gc}</span>
+            <span>${dg > 0 ? '+'+dg : dg}</span>
+            <span class="gt-pts">${pts}</span>
+          </div>`;
+        }).join('')}
+      </div>`;
+    el.appendChild(wrap);
+  });
 }
 
 function renderClassificationTeams(advancement, predictions) {
@@ -627,14 +692,15 @@ function ensureAdminLockButton(matches) {
 
 // ── Data loading ──────────────────────────────────────────────────────────────
 async function loadData() {
-  const [{ matches }, { leaderboard }, classData] = await Promise.all([
+  const [{ matches }, { leaderboard }] = await Promise.all([
     api('/api/matches'),
-    api('/api/leaderboard'),
-    api('/api/classification')
+    api('/api/leaderboard')
   ]);
+  registeredUsernames = new Set(leaderboard.map(r => r.username.toLowerCase()));
+  renderPreloadedUsers();
   renderMatches(matches);
   renderKnockout(matches);
-  renderClassification(classData);
+  renderGroupStandings(matches);
   renderLeaderboard(leaderboard);
   renderAdminMatches(matches);
 }

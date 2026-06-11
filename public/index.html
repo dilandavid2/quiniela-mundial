@@ -71,21 +71,19 @@
           <div id="knockout"></div>
         </section>
 
-        <!-- Clasificación -->
+        <!-- Grupos del Mundial -->
         <section class="tab-panel hidden" id="tab-classification">
           <div class="section-header">
-            <h2>Clasificación de rondas</h2>
-            <p class="muted">16avos 2 · 8avos 4 · Cuartos 6 · Semis 8 · Final 10 · Campeón 15 pts</p>
+            <h2>Grupos del Mundial</h2>
+            <p class="muted">Posiciones actuales por grupo</p>
           </div>
-          <div class="round-tabs" id="round-tabs"></div>
-          <div id="classification-teams"></div>
-          <button id="save-classification-btn" style="margin-top:16px">Guardar clasificación</button>
+          <div id="group-standings"></div>
         </section>
 
-        <!-- Usuarios (leaderboard) -->
+        <!-- Clasificación (leaderboard) -->
         <section class="tab-panel hidden" id="tab-leaderboard">
           <div class="section-header">
-            <h2>Tabla de posiciones</h2>
+            <h2>Clasificación</h2>
           </div>
           <div class="table-wrapper">
             <div id="leaderboard"></div>
@@ -114,7 +112,7 @@
       </main>
 
       <!-- Botón guardar flotante -->
-      <button id="fab-save" class="fab-save hidden">💾 Guardar</button>
+      <button id="fab-save" class="fab-save">💾 Guardar</button>
 
       <!-- Modal admin -->
       <div id="admin-modal" class="modal-overlay hidden">
@@ -145,12 +143,12 @@
           <span class="bnav-label">Partidos</span>
         </button>
         <button class="bnav-btn" data-tab="classification">
-          <span class="bnav-icon">🏆</span>
-          <span class="bnav-label">Clasificación</span>
+          <span class="bnav-icon">📊</span>
+          <span class="bnav-label">Grupos</span>
         </button>
         <button class="bnav-btn" data-tab="leaderboard">
-          <span class="bnav-icon">👥</span>
-          <span class="bnav-label">Usuarios</span>
+          <span class="bnav-icon">🏆</span>
+          <span class="bnav-label">Clasificación</span>
         </button>
         <button class="bnav-btn" data-tab="perfil">
           <span class="bnav-icon">👤</span>

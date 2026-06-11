@@ -725,3 +725,66 @@ button.secondary {
 .table-row {
   min-width: 420px;
 }
+
+/* ── Avatar lg ──────────────────────────────────────────────────────────────── */
+.avatar-lg {
+  width: 64px;
+  height: 64px;
+  font-size: 1.4rem;
+  border-radius: 16px;
+}
+
+/* ── Group Standings ────────────────────────────────────────────────────────── */
+.group-section { margin-bottom: 24px; }
+
+.group-title {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--accent-light);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 10px 0 6px;
+}
+
+.group-table {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.gt-row {
+  display: grid;
+  grid-template-columns: 1fr 26px 24px 24px 24px 26px 26px 30px 32px;
+  gap: 0;
+  padding: 7px 10px;
+  border-bottom: 1px solid rgba(42,61,82,0.4);
+  align-items: center;
+  font-size: 0.77rem;
+}
+
+.gt-row:last-child { border-bottom: none; }
+
+.gt-header {
+  background: var(--surface-2);
+  font-weight: 700;
+  font-size: 0.66rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 8px 10px;
+}
+
+.gt-row > span:not(.gt-team) { text-align: center; }
+
+.gt-team {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-right: 4px;
+}
+
+.gt-pts { font-weight: 800; color: var(--accent-light); }
+
+.gt-row.qualifies { background: rgba(59,130,246,0.09); }
+.gt-row.third     { background: rgba(234,179,8,0.07); }
