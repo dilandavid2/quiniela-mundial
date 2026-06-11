@@ -31,7 +31,7 @@ const FLAGS = {
   'Irak':'🇮🇶','Noruega':'🇳🇴','Argentina':'🇦🇷','Argelia':'🇩🇿',
   'Austria':'🇦🇹','Jordania':'🇯🇴','Portugal':'🇵🇹','RD Congo':'🇨🇩',
   'Inglaterra':'🏴󠁧󠁢󠁥󠁮󠁧󠁿','Croacia':'🇭🇷','Ghana':'🇬🇭','Panamá':'🇵🇦',
-  'Uzbekistán':'🇺🇿','Colombia':'🇨🇴','Estados Unidos':'🇺🇸',
+  'Uzbekistán':'🇺🇿','Colombia':'🇨🇴','Estados Unidos':'🇺🇸','Paraguay':'🇵🇾',
 };
 function flag(team) { return FLAGS[team] || '🏳️'; }
 
