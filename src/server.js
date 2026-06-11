@@ -25,7 +25,8 @@ function sanitizeUser(user) {
   return {
     id: user.id,
     username: user.username,
-    country: user.country || ''
+    country: user.country || '',
+    avatar: user.avatar || null
   };
 }
 
@@ -260,6 +261,7 @@ app.get('/api/leaderboard', requireAuth, (req, res) => {
       return {
         userId: user.id,
         username: user.username,
+        avatar: user.avatar || null,
         totalPoints: matchPoints + classPoints,
         matchPoints,
         classPoints,
@@ -461,6 +463,50 @@ app.post('/api/classification/:round', requireAuth, (req, res) => {
 
   writeDb(db);
   return res.json({ ok: true });
+});
+
+const ADMIN_USER_SECRET = 'diaz-admin';
+
+// ── Admin: listar todos los usuarios registrados ─────────────────────────────
+app.get('/api/admin/users', (req, res) => {
+  if (req.headers['x-admin-secret'] !== ADMIN_USER_SECRET) {
+    return res.status(403).json({ error: 'Clave admin incorrecta' });
+  }
+  const db = readDb();
+  const users = db.users
+    .filter((u) => u.password || u.passwordHash)
+    .map((u) => ({
+      id: u.id,
+      username: u.username,
+      country: u.country || '',
+      avatar: u.avatar || null
+    }));
+  return res.json({ users });
+});
+
+// ── Admin: editar usuario ────────────────────────────────────────────────────
+app.patch('/api/admin/users/:userId', (req, res) => {
+  if (req.headers['x-admin-secret'] !== ADMIN_USER_SECRET) {
+    return res.status(403).json({ error: 'Clave admin incorrecta' });
+  }
+  const { userId } = req.params;
+  const { username, password, country, avatar } = req.body || {};
+  const db = readDb();
+  const user = db.users.find((u) => u.id === userId);
+  if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+
+  if (username && String(username).trim()) {
+    user.username = String(username).trim();
+  }
+  if (password && String(password).trim().length >= 4) {
+    delete user.passwordHash;
+    user.password = String(password).trim();
+  }
+  if (country !== undefined) user.country = String(country).trim();
+  if (avatar !== undefined) user.avatar = avatar; // base64 string o null
+
+  writeDb(db);
+  return res.json({ ok: true, user: { id: user.id, username: user.username, country: user.country, avatar: user.avatar || null } });
 });
 
 initDb()

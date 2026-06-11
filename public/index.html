@@ -133,6 +133,50 @@
             </div>
             <button type="submit" style="margin-top:4px">Guardar resultado</button>
           </form>
+          <hr style="border-color:var(--border);margin:18px 0">
+          <button id="open-edit-users-btn" class="btn-edit-users">✏️ Editar usuarios</button>
+        </div>
+      </div>
+
+      <!-- Modal edición de usuarios -->
+      <div id="users-modal" class="modal-overlay hidden">
+        <div class="modal-card modal-card-tall">
+          <div class="modal-header">
+            <h3>Editar usuarios</h3>
+            <button id="users-modal-close" class="btn-icon">✕</button>
+          </div>
+          <!-- Paso 1: clave admin -->
+          <div id="users-auth-step">
+            <p class="muted" style="margin-bottom:12px">Ingresa la clave de administrador</p>
+            <div style="display:flex;gap:8px">
+              <input id="users-admin-secret" type="password" placeholder="Clave admin" style="flex:1" />
+              <button id="users-auth-btn" style="flex-shrink:0;padding:12px 18px">Entrar</button>
+            </div>
+            <p id="users-auth-error" class="muted" style="color:var(--danger);margin-top:8px"></p>
+          </div>
+          <!-- Paso 2: lista de usuarios -->
+          <div id="users-list-step" class="hidden">
+            <p class="muted" style="margin-bottom:12px">Selecciona un usuario para editar</p>
+            <div id="users-list"></div>
+          </div>
+          <!-- Paso 3: formulario de edición -->
+          <div id="users-edit-step" class="hidden">
+            <button id="users-back-btn" class="btn-back">← Volver</button>
+            <div id="users-edit-avatar-wrap" style="text-align:center;margin:16px 0 8px"></div>
+            <label class="file-label">
+              📷 Cambiar foto
+              <input type="file" id="users-avatar-input" accept="image/*" style="display:none" />
+            </label>
+            <div style="display:flex;flex-direction:column;gap:10px;margin-top:14px">
+              <input id="edit-username" type="text" placeholder="Nombre de usuario" />
+              <input id="edit-password" type="password" placeholder="Nueva contraseña (dejar en blanco para no cambiar)" />
+              <select id="edit-country">
+                <option value="">País favorito</option>
+              </select>
+            </div>
+            <button id="users-save-btn" style="margin-top:16px;width:100%">Guardar cambios</button>
+            <p id="users-edit-msg" class="muted" style="text-align:center;margin-top:8px"></p>
+          </div>
         </div>
       </div>
 

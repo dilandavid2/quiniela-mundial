@@ -118,7 +118,14 @@ function avatarColor(name) {
   return palette[hash % palette.length];
 }
 
-function avatarHtml(name, cls = 'avatar') {
+function avatarHtml(name, cls = 'avatar', photoUrl = null) {
+  if (photoUrl) {
+    // Extraer dimensiones del cls para la foto
+    const sizeCls = cls.includes('avatar-xl') ? 'avatar-xl' : cls.includes('avatar-lg') ? 'avatar-lg' : cls.includes('avatar-sm') ? 'avatar-sm' : '';
+    const sizeMap = { 'avatar-xl': 160, 'avatar-lg': 88, 'avatar-sm': 32, '': 44 };
+    const sz = sizeMap[sizeCls] || 44;
+    return `<img src="${photoUrl}" class="avatar-photo ${cls}" style="width:${sz}px;height:${sz}px" alt="${name}" title="${name}" />`;
+  }
   const initials = name.slice(0, 2).toUpperCase();
   const bg = avatarColor(name);
   return `<span class="${cls}" style="background:${bg}" title="${name}">${initials}</span>`;
@@ -603,7 +610,7 @@ function renderLeaderboard(rows) {
     row.className = 'table-row';
     row.innerHTML = `
       <span>${index + 1}</span>
-      <span class="lb-player">${avatarHtml(item.username, 'avatar avatar-sm')}<span class="lb-name">${item.username}</span></span>
+      <span class="lb-player">${avatarHtml(item.username, 'avatar avatar-sm', item.avatar)}<span class="lb-name">${item.username}</span></span>
       <span><strong>${item.totalPoints} pts</strong></span>
       <span>${item.matchPoints ?? item.totalPoints}</span>
       <span>${item.classPoints ?? 0}</span>
@@ -710,20 +717,21 @@ async function refreshSession() {
     const { user } = await api('/api/auth/me');
     authSection.classList.add('hidden');
     appSection.classList.remove('hidden');
-    // Avatar pequeno en el header
-    document.getElementById('user-avatar').innerHTML = avatarHtml(user.username, 'avatar avatar-sm');
+    // Avatar pequeño en el header
+    document.getElementById('user-avatar').innerHTML = avatarHtml(user.username, 'avatar avatar-sm', user.avatar);
     // Datos del perfil
-    const profileAvatar = document.getElementById('profile-avatar');
+    const profileAvatar   = document.getElementById('profile-avatar');
     const profileUsername = document.getElementById('profile-username');
-    const profileCountry = document.getElementById('profile-country');
+    const profileCountry  = document.getElementById('profile-country');
     if (profileAvatar) {
-      profileAvatar.innerHTML = avatarHtml(user.username, 'avatar avatar-lg');
-      profileAvatar.querySelector('.avatar-lg').addEventListener('click', () => {
+      profileAvatar.innerHTML = avatarHtml(user.username, 'avatar avatar-lg', user.avatar);
+      const avatarEl = profileAvatar.querySelector('.avatar-lg, .avatar-photo');
+      avatarEl?.addEventListener('click', () => {
         const overlay = document.createElement('div');
         overlay.className = 'avatar-modal-overlay';
         overlay.innerHTML = `
           <div style="display:flex;flex-direction:column;align-items:center">
-            ${avatarHtml(user.username, 'avatar avatar-xl')}
+            ${avatarHtml(user.username, 'avatar avatar-xl', user.avatar)}
             <div class="avatar-modal-username">${user.username}</div>
             ${user.country ? `<div class="avatar-modal-country">${flag(user.country)} ${user.country}</div>` : ''}
           </div>`;
@@ -871,6 +879,153 @@ adminResultForm?.addEventListener('submit', async (e) => {
     await loadData();
   } catch (e) {
     setMessage(e.message, true);
+  }
+});
+
+// ── Admin: editar usuarios ──────────────────────────────────────────────────
+const ADMIN_SECRET_USERS = 'diaz-admin';
+let editingUserId = null;
+let currentAvatarBase64 = null;
+
+const usersModal          = document.getElementById('users-modal');
+const usersAuthStep       = document.getElementById('users-auth-step');
+const usersListStep       = document.getElementById('users-list-step');
+const usersEditStep       = document.getElementById('users-edit-step');
+const usersAdminSecret    = document.getElementById('users-admin-secret');
+const usersAuthBtn        = document.getElementById('users-auth-btn');
+const usersAuthError      = document.getElementById('users-auth-error');
+const usersList           = document.getElementById('users-list');
+const editUsername        = document.getElementById('edit-username');
+const editPassword        = document.getElementById('edit-password');
+const editCountry         = document.getElementById('edit-country');
+const usersEditMsg        = document.getElementById('users-edit-msg');
+const usersAvatarInput    = document.getElementById('users-avatar-input');
+const usersEditAvatarWrap = document.getElementById('users-edit-avatar-wrap');
+
+// Poblar select de países en el formulario de edición
+if (editCountry) {
+  [...new Set(Object.values(ALL_TEAMS_BY_GROUP).flat())].forEach(c => {
+    const o = document.createElement('option');
+    o.value = c; o.textContent = `${flag(c)} ${c}`;
+    editCountry.appendChild(o);
+  });
+}
+
+function showUsersStep(step) {
+  [usersAuthStep, usersListStep, usersEditStep].forEach(el => el?.classList.add('hidden'));
+  step?.classList.remove('hidden');
+}
+
+document.getElementById('open-edit-users-btn')?.addEventListener('click', () => {
+  adminModal?.classList.add('hidden');
+  usersModal?.classList.remove('hidden');
+  showUsersStep(usersAuthStep);
+  if (usersAdminSecret) { usersAdminSecret.value = ''; usersAdminSecret.focus(); }
+  if (usersAuthError) usersAuthError.textContent = '';
+});
+
+document.getElementById('users-modal-close')?.addEventListener('click', () => {
+  usersModal?.classList.add('hidden');
+});
+usersModal?.addEventListener('click', (e) => {
+  if (e.target === usersModal) usersModal.classList.add('hidden');
+});
+
+usersAuthBtn?.addEventListener('click', async () => {
+  const secret = usersAdminSecret?.value.trim();
+  if (secret !== ADMIN_SECRET_USERS) {
+    if (usersAuthError) usersAuthError.textContent = 'Clave incorrecta';
+    return;
+  }
+  try {
+    const { users } = await api('/api/admin/users', {
+      headers: { 'x-admin-secret': ADMIN_SECRET_USERS }
+    });
+    renderUsersList(users);
+    showUsersStep(usersListStep);
+  } catch (e) {
+    if (usersAuthError) usersAuthError.textContent = e.message;
+  }
+});
+
+function renderUsersList(users) {
+  usersList.innerHTML = '';
+  users.forEach(u => {
+    const item = document.createElement('div');
+    item.className = 'user-list-item';
+    item.innerHTML = `
+      ${avatarHtml(u.username, 'avatar avatar-sm', u.avatar)}
+      <div class="uli-info">
+        <div class="uli-name">${u.username}</div>
+        <div class="uli-country">${u.country ? `${flag(u.country)} ${u.country}` : 'Sin país'}</div>
+      </div>
+      <span class="uli-arrow">›</span>`;
+    item.addEventListener('click', () => openEditUser(u));
+    usersList.appendChild(item);
+  });
+}
+
+function openEditUser(u) {
+  editingUserId = u.id;
+  currentAvatarBase64 = u.avatar || null;
+  if (editUsername) editUsername.value = u.username;
+  if (editPassword) editPassword.value = '';
+  if (editCountry)  editCountry.value  = u.country || '';
+  renderEditAvatar(u.username, currentAvatarBase64);
+  if (usersEditMsg) usersEditMsg.textContent = '';
+  showUsersStep(usersEditStep);
+}
+
+function renderEditAvatar(name, photoUrl) {
+  if (!usersEditAvatarWrap) return;
+  usersEditAvatarWrap.innerHTML = avatarHtml(name, 'avatar avatar-lg', photoUrl);
+}
+
+usersAvatarInput?.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    currentAvatarBase64 = ev.target.result;
+    renderEditAvatar(editUsername?.value || '', currentAvatarBase64);
+  };
+  reader.readAsDataURL(file);
+});
+
+document.getElementById('users-back-btn')?.addEventListener('click', async () => {
+  try {
+    const { users } = await api('/api/admin/users', {
+      headers: { 'x-admin-secret': ADMIN_SECRET_USERS }
+    });
+    renderUsersList(users);
+  } catch {}
+  showUsersStep(usersListStep);
+});
+
+document.getElementById('users-save-btn')?.addEventListener('click', async () => {
+  if (!editingUserId) return;
+  const body = {
+    username: editUsername?.value.trim(),
+    country:  editCountry?.value || '',
+    avatar:   currentAvatarBase64
+  };
+  const pwd = editPassword?.value.trim();
+  if (pwd) body.password = pwd;
+
+  try {
+    await api(`/api/admin/users/${editingUserId}`, {
+      method: 'PATCH',
+      headers: { 'x-admin-secret': ADMIN_SECRET_USERS },
+      body: JSON.stringify(body)
+    });
+    if (usersEditMsg) { usersEditMsg.textContent = 'Guardado ✅'; usersEditMsg.style.color = 'var(--success)'; }
+    const { users } = await api('/api/admin/users', {
+      headers: { 'x-admin-secret': ADMIN_SECRET_USERS }
+    });
+    renderUsersList(users);
+    setTimeout(() => showUsersStep(usersListStep), 800);
+  } catch (e) {
+    if (usersEditMsg) { usersEditMsg.textContent = e.message; usersEditMsg.style.color = 'var(--danger)'; }
   }
 });
 

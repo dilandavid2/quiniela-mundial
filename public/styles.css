@@ -715,6 +715,81 @@ button.secondary {
 }
 .btn-logout:hover { background: rgba(239,68,68,0.1); }
 
+/* ── Botón editar usuarios ───────────────────────────────────────────── */
+.btn-edit-users {
+  width: 100%;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  color: var(--text);
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.95rem;
+  transition: border-color 0.2s;
+}
+.btn-edit-users:hover { border-color: var(--accent); }
+
+.modal-card-tall { max-height: 88dvh; display: flex; flex-direction: column; }
+.modal-card-tall > * { flex-shrink: 0; }
+#users-list-step, #users-edit-step { overflow-y: auto; flex: 1; }
+
+/* Lista de usuarios */
+#users-list { display: flex; flex-direction: column; gap: 8px; }
+
+.user-list-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+.user-list-item:hover { border-color: var(--accent); }
+.user-list-item .uli-info { flex: 1; min-width: 0; }
+.user-list-item .uli-name { font-weight: 700; font-size: 0.95rem; }
+.user-list-item .uli-country { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
+.user-list-item .uli-arrow { color: var(--text-muted); font-size: 1.1rem; }
+
+/* Avatar con foto */
+.avatar-photo {
+  border-radius: 10px;
+  object-fit: cover;
+  display: inline-block;
+}
+
+/* File label */
+.file-label {
+  display: inline-block;
+  background: var(--surface-2);
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  padding: 10px 20px;
+  cursor: pointer;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  text-align: center;
+  width: 100%;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+.file-label:hover { border-color: var(--accent); color: var(--accent-light); }
+
+.btn-back {
+  background: transparent;
+  border: none;
+  color: var(--accent-light);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0 0 12px 0;
+  font-family: inherit;
+}
+
 /* ── Tabla ──────────────────────────────────────────────────────────────── */
 .table-wrapper {
   overflow-x: auto;
