@@ -766,9 +766,10 @@ logoutBtn.addEventListener('click', async () => {
   setMessage('Sesión cerrada'); await refreshSession();
 });
 
-// ── FAB: guardar todos los pronósticos pendientes ────────────────────────────────────
+// ── FAB: guardar pronósticos completados ─────────────────────────────────────
 document.getElementById('fab-save')?.addEventListener('click', async () => {
-  const inputs = [...document.querySelectorAll('.score-input:not(:disabled)')];
+  // Solo inputs de partidos (con data-match-id), excluye los del modal admin
+  const inputs = [...document.querySelectorAll('.score-input[data-match-id]:not(:disabled)')];
   const grouped = {};
   inputs.forEach((inp) => {
     const matchId = inp.dataset.matchId;
@@ -778,11 +779,8 @@ document.getElementById('fab-save')?.addEventListener('click', async () => {
   try {
     let guardados = 0;
     for (const [matchId, values] of Object.entries(grouped)) {
-      if (values.home === '' && values.away === '') continue;
-      if (values.home === '' || values.away === '') {
-        setMessage('Completa ambos goles del partido', true);
-        return;
-      }
+      // Saltar partidos donde alguno de los dos goles no fue ingresado
+      if (values.home === '' || values.away === '') continue;
       const homeGoals = Number(values.home);
       const awayGoals = Number(values.away);
       if (!Number.isInteger(homeGoals) || !Number.isInteger(awayGoals) ||
@@ -796,7 +794,7 @@ document.getElementById('fab-save')?.addEventListener('click', async () => {
       });
       guardados++;
     }
-    if (guardados === 0) { setMessage('No hay pronósticos para guardar', true); return; }
+    if (guardados === 0) { setMessage('Completa al menos un partido para guardar', true); return; }
     setMessage(`${guardados} pronóstico(s) guardado(s) ✅`);
     await loadData();
   } catch (e) {
