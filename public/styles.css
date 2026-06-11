@@ -322,8 +322,20 @@ button.secondary {
 }
 
 @media (max-width: 600px) {
+
   .tabs {
-    display: none;
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    white-space: nowrap;
+    padding-bottom: 8px;
+    flex-wrap: nowrap;
+  }
+
+  .tab-btn {
+    flex: 0 0 auto;
+    font-size: 14px;
+    padding: 10px 14px;
   }
 
   .container {
