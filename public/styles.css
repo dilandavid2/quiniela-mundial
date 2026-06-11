@@ -726,12 +726,49 @@ button.secondary {
   min-width: 420px;
 }
 
-/* ── Avatar lg ──────────────────────────────────────────────────────────────── */
+/* ── Avatar lg / xl ─────────────────────────────────────────────────────── */
 .avatar-lg {
-  width: 64px;
-  height: 64px;
+  width: 88px;
+  height: 88px;
+  font-size: 2rem;
+  border-radius: 22px;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+.avatar-lg:hover { transform: scale(1.06); }
+
+.avatar-xl {
+  width: 160px;
+  height: 160px;
+  font-size: 3.8rem;
+  border-radius: 36px;
+}
+
+/* Modal de avatar expandido */
+.avatar-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.75);
+  z-index: 400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.avatar-modal-username {
+  margin-top: 16px;
   font-size: 1.4rem;
-  border-radius: 16px;
+  font-weight: 800;
+  color: #fff;
+}
+.avatar-modal-country {
+  margin-top: 6px;
+  font-size: 1rem;
+  color: rgba(255,255,255,0.65);
+}
+.profile-country-text {
+  font-size: 1rem;
+  color: var(--text-muted);
 }
 
 /* ── Group Standings ────────────────────────────────────────────────────────── */

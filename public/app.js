@@ -716,9 +716,25 @@ async function refreshSession() {
     const profileAvatar = document.getElementById('profile-avatar');
     const profileUsername = document.getElementById('profile-username');
     const profileCountry = document.getElementById('profile-country');
-    if (profileAvatar) profileAvatar.innerHTML = avatarHtml(user.username, 'avatar avatar-lg');
+    if (profileAvatar) {
+      profileAvatar.innerHTML = avatarHtml(user.username, 'avatar avatar-lg');
+      profileAvatar.querySelector('.avatar-lg').addEventListener('click', () => {
+        const overlay = document.createElement('div');
+        overlay.className = 'avatar-modal-overlay';
+        overlay.innerHTML = `
+          <div style="display:flex;flex-direction:column;align-items:center">
+            ${avatarHtml(user.username, 'avatar avatar-xl')}
+            <div class="avatar-modal-username">${user.username}</div>
+            ${user.country ? `<div class="avatar-modal-country">${flag(user.country)} ${user.country}</div>` : ''}
+          </div>`;
+        overlay.addEventListener('click', () => overlay.remove());
+        document.body.appendChild(overlay);
+      });
+    }
     if (profileUsername) profileUsername.textContent = user.username;
-    if (profileCountry) profileCountry.textContent = user.country ? `🌍 ${user.country}` : '';
+    if (profileCountry) profileCountry.innerHTML = user.country
+      ? `<span class="profile-country-text">${flag(user.country)} ${user.country}</span>`
+      : '';
     await loadData();
   } catch {
     authSection.classList.remove('hidden');
