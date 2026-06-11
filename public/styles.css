@@ -177,10 +177,11 @@ button.secondary {
 
 .table-row {
   display: grid;
-  grid-template-columns: 40px 1fr 120px 120px;
+  grid-template-columns: 40px 180px 80px 90px 80px 90px;
   gap: 8px;
-  padding: 6px 0;
+  padding: 10px 0;
   border-bottom: 1px solid #1e293b;
+  align-items: center;
 }
 
 .muted {
@@ -298,6 +299,9 @@ button.secondary {
 
 /* ── Leaderboard header ──────────────────────────────────────────────────── */
 .table-header {
+  display: grid;
+  grid-template-columns: 40px 180px 80px 90px 80px 90px;
+  gap: 8px;
   font-weight: 700;
   font-size: 0.8rem;
   color: #64748b;
@@ -308,12 +312,11 @@ button.secondary {
 
 .table-row {
   display: grid;
-  grid-template-columns: 36px 1fr 90px 80px 70px 70px;
-  gap: 6px;
-  padding: 6px 0;
+  grid-template-columns: 40px 180px 80px 90px 80px 90px;
+  gap: 8px;
+  padding: 8px 0;
   border-bottom: 1px solid #1e293b;
   align-items: center;
-  font-size: 0.88rem;
 }
 
 /* ── Bottom Nav (solo móvil) ─────────────────────────────────────────────── */
@@ -401,3 +404,12 @@ button.secondary {
   }
 }
 
+.table-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.table-header,
+.table-row {
+  min-width: 650px;
+}
