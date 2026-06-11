@@ -153,6 +153,7 @@ app.get('/api/matches', requireAuth, (req, res) => {
       kickoff: match.kickoff,
       lockoutAt,
       result: match.result,
+      locked: Boolean(match.locked),
       prediction: prediction
         ? { homeGoals: prediction.homeGoals, awayGoals: prediction.awayGoals }
         : null,
@@ -188,6 +189,10 @@ app.post('/api/predictions/:matchId', requireAuth, (req, res) => {
   const match = db.matches.find((item) => item.id === matchId);
   if (!match) {
     return res.status(404).json({ error: 'Partido no encontrado' });
+  }
+
+  if (match.locked) {
+    return res.status(400).json({ error: 'Los pronósticos de este partido están bloqueados por el administrador' });
   }
 
   if (!match.home || !match.away) {
@@ -297,6 +302,27 @@ app.post('/api/admin/matches/:matchId/result', (req, res) => {
   return res.json({ ok: true, match });
 });
 
+app.patch('/api/admin/matches/:matchId/lock', (req, res) => {
+  const adminSecret = process.env.ADMIN_SECRET || 'admin-demo';
+  const providedSecret = req.headers['x-admin-secret'];
+
+  if (providedSecret !== adminSecret) {
+    return res.status(403).json({ error: 'No autorizado para bloquear partidos' });
+  }
+
+  const { matchId } = req.params;
+  const db = readDb();
+  const match = db.matches.find((item) => item.id === matchId);
+
+  if (!match) {
+    return res.status(404).json({ error: 'Partido no encontrado' });
+  }
+
+  match.locked = !Boolean(match.locked);
+  writeDb(db);
+
+  return res.json({ ok: true, match });
+});
 // ── Admin: asignar equipos a partido de fase final ──────────────────────────
 app.post('/api/admin/matches/:matchId/teams', (req, res) => {
   const adminSecret = process.env.ADMIN_SECRET || 'admin-demo';
@@ -357,6 +383,61 @@ app.post('/api/classification/:round', requireAuth, (req, res) => {
   const validRounds = ['r32', 'r16', 'qf', 'sf', 'final', 'champion'];
   if (!validRounds.includes(round)) return res.status(400).json({ error: 'Ronda inválida' });
   if (!Array.isArray(teams)) return res.status(400).json({ error: 'teams debe ser un array' });
+
+  const limits = {
+    r32: 32,
+    r16: 16,
+    qf: 8,
+    sf: 4,
+    final: 2,
+    champion: 1
+  };
+
+  if (teams.length !== limits[round]) {
+    return res.status(400).json({ error: `Debes seleccionar exactamente ${limits[round]} equipo(s)` });
+  }
+
+  const uniqueTeams = new Set(teams);
+  if (uniqueTeams.size !== teams.length) {
+    return res.status(400).json({ error: 'No puedes repetir equipos en la clasificación' });
+  }
+
+  if (round === 'r32') {
+    const groups = {
+      A:['México','Sudáfrica','Corea del Sur','República Checa'],
+      B:['Canadá','Bosnia y Herzegovina','Catar','Suiza'],
+      C:['Brasil','Marruecos','Haití','Escocia'],
+      D:['Estados Unidos','Paraguay','Australia','Turquía'],
+      E:['Alemania','Curazao','Costa de Marfil','Ecuador'],
+      F:['Países Bajos','Japón','Suecia','Túnez'],
+      G:['Bélgica','Egipto','Irán','Nueva Zelanda'],
+      H:['España','Cabo Verde','Arabia Saudí','Uruguay'],
+      I:['Francia','Senegal','Irak','Noruega'],
+      J:['Argentina','Argelia','Austria','Jordania'],
+      K:['Portugal','RD Congo','Uzbekistán','Colombia'],
+      L:['Inglaterra','Croacia','Ghana','Panamá']
+    };
+
+    let thirdPlaces = 0;
+
+    for (const [group, groupTeams] of Object.entries(groups)) {
+      const count = teams.filter((team) => groupTeams.includes(team)).length;
+
+      if (count < 2) {
+        return res.status(400).json({ error: `Debes seleccionar mínimo 2 equipos del Grupo ${group}` });
+      }
+
+      if (count > 3) {
+        return res.status(400).json({ error: `No puedes seleccionar más de 3 equipos del Grupo ${group}` });
+      }
+
+      if (count === 3) thirdPlaces++;
+    }
+
+    if (thirdPlaces !== 8) {
+      return res.status(400).json({ error: 'Debes seleccionar exactamente 8 mejores terceros' });
+    }
+  }
 
   const db = readDb();
   const user = findUserBySession(db, req);

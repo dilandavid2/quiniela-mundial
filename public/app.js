@@ -211,9 +211,10 @@ function buildMatchCard(match) {
 
   const kickoff = new Date(match.kickoff).toLocaleString('es-AR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
   const prediction = match.prediction || { homeGoals:'', awayGoals:'' };
-  const locked = Date.now() >= new Date(match.lockoutAt).getTime();
+  const locked = Boolean(match.locked) || Date.now() >= new Date(match.lockoutAt).getTime();
   const hasTeams = match.home && match.away;
   const resultText = match.result ? `${match.result.homeGoals}-${match.result.awayGoals}` : 'pendiente';
+  const lockText = match.locked ? ' · 🔒 bloqueado' : '';
   const pointsText = match.points === null ? '' : ` · <strong>${match.points} pts</strong> (${match.pointsReason})`;
   const metaLabel = match.group ? `Grupo ${match.group}` : (match.homeDesc ? `${match.homeDesc} vs ${match.awayDesc}` : '');
   const homeLabel = hasTeams ? `${flag(match.home)} ${match.home}` : (match.homeDesc || 'Por definir');
@@ -221,7 +222,7 @@ function buildMatchCard(match) {
   const canPredict = hasTeams && !locked;
 
   row.innerHTML = `
-    <div class="match-meta">${metaLabel} · ${kickoff}h · ${resultText}${pointsText}</div>
+    <div class="match-meta">${metaLabel} · ${kickoff}h · ${resultText}${lockText}${pointsText}</div>
     <div class="match-teams">
       <span class="team">${homeLabel}</span>
       <span class="vs">vs</span>
@@ -316,7 +317,14 @@ function renderClassification(data) {
   document.getElementById('save-classification-btn').onclick = async () => {
     const adv = advancement[activeRound];
     if (adv && adv.locked) { setMessage('Esta ronda ya está cerrada 🔒', true); return; }
-    const selected = [...document.querySelectorAll('.team-chip.selected')].map((el) => el.dataset.team);
+    const selected = activeRound === 'r32'
+      ? getR32SelectedTeams()
+      : [...document.querySelectorAll('.team-chip.selected')].map((el) => el.dataset.team);
+    if (selected.length !== ROUND_CONFIG.find((r) => r.key === activeRound).count) {
+      const rc = ROUND_CONFIG.find((r) => r.key === activeRound);
+      setMessage(`Debes seleccionar exactamente ${rc.count} equipo(s)`, true);
+      return;
+    }
     try {
       await api(`/api/classification/${activeRound}`, { method:'POST', body:JSON.stringify({ teams: selected }) });
       setMessage(`Clasificación guardada ✅`);
@@ -338,14 +346,22 @@ function renderClassificationTeams(advancement, predictions) {
 
   const hint = document.createElement('p');
   hint.className = 'muted';
+
   if (locked && confirmed.length) {
     const correct = [...selected].filter((t) => confirmed.includes(t)).length;
     hint.innerHTML = `Ronda cerrada. Acertaste <strong>${correct}</strong> de ${confirmed.length} equipos → <strong>+${correct * rc.pts} pts</strong>`;
+  } else if (activeRound === 'r32') {
+    hint.textContent = 'Selecciona 1.º y 2.º de cada grupo, más 8 mejores terceros.';
   } else {
-    const count = selected.size;
-    hint.textContent = locked ? 'Ronda cerrada.' : `Seleccioná los ${rc.count} equipos que crees que clasifican. Seleccionados: ${count}`;
+    hint.textContent = locked ? 'Ronda cerrada.' : `Selecciona los ${rc.count} equipos que crees que clasifican. Seleccionados: ${selected.size}`;
   }
+
   teamsEl.appendChild(hint);
+
+  if (activeRound === 'r32') {
+    renderR32ClassificationForm(teamsEl, selected, locked, confirmed, hint);
+    return;
+  }
 
   Object.entries(ALL_TEAMS_BY_GROUP).forEach(([grp, teams]) => {
     const groupLabel = document.createElement('div');
@@ -360,23 +376,153 @@ function renderClassificationTeams(advancement, predictions) {
       const chip = document.createElement('button');
       chip.className = 'team-chip';
       chip.dataset.team = team;
+      chip.dataset.group = grp;
       chip.textContent = `${flag(team)} ${team}`;
+
       if (selected.has(team)) chip.classList.add('selected');
+
       if (locked) {
         chip.disabled = true;
         if (confirmed.includes(team)) chip.classList.add('confirmed');
         else if (selected.has(team)) chip.classList.add('wrong');
       }
+
       chip.addEventListener('click', () => {
+        if (locked) return;
+
+        const isSelected = chip.classList.contains('selected');
+
+        if (!isSelected) {
+          const selectedNow = [...document.querySelectorAll('.team-chip.selected')];
+
+          if (selectedNow.length >= rc.count) {
+            setMessage(`Solo puedes seleccionar ${rc.count} equipo(s) en esta ronda`, true);
+            return;
+          }
+        }
+
         chip.classList.toggle('selected');
+
         const count = document.querySelectorAll('.team-chip.selected').length;
-        if (!locked) hint.textContent = `Seleccioná los ${rc.count} equipos que crees que clasifican. Seleccionados: ${count}`;
+        hint.textContent = `Selecciona los ${rc.count} equipos que crees que clasifican. Seleccionados: ${count}`;
       });
+
       chipsRow.appendChild(chip);
     });
 
     teamsEl.appendChild(chipsRow);
   });
+}
+
+function renderR32ClassificationForm(container, selected, locked, confirmed, hint) {
+  Object.entries(ALL_TEAMS_BY_GROUP).forEach(([grp, teams]) => {
+    const groupBox = document.createElement('div');
+    groupBox.className = 'classification-group-box';
+
+    groupBox.innerHTML = `
+      <div class="team-group-label">Grupo ${grp}</div>
+
+      <div class="classification-select-grid">
+        <label>
+          1.º lugar
+          <select class="classification-select" data-group="${grp}" data-position="first" ${locked ? 'disabled' : ''}>
+            ${buildTeamOptions(teams, selected, 0)}
+          </select>
+        </label>
+
+        <label>
+          2.º lugar
+          <select class="classification-select" data-group="${grp}" data-position="second" ${locked ? 'disabled' : ''}>
+            ${buildTeamOptions(teams, selected, 1)}
+          </select>
+        </label>
+
+        <label>
+          3.º mejor tercero
+          <select class="classification-select third-select" data-group="${grp}" data-position="third" ${locked ? 'disabled' : ''}>
+            ${buildTeamOptions(teams, selected, 2, true)}
+          </select>
+        </label>
+      </div>
+    `;
+
+    container.appendChild(groupBox);
+  });
+
+  updateR32Hint(hint);
+
+  document.querySelectorAll('.classification-select').forEach((select) => {
+    select.addEventListener('change', () => {
+      cleanRepeatedTeamsInGroup(select);
+      limitBestThirds(select);
+      updateR32Hint(hint);
+    });
+  });
+}
+
+function buildTeamOptions(teams, selected, index, optional = false) {
+  const selectedArray = [...selected];
+  const selectedTeam = selectedArray.find((team) => teams.includes(team) && selectedArray.indexOf(team) % 3 === index);
+
+  let html = optional
+    ? '<option value="">Sin tercer clasificado</option>'
+    : '<option value="">Selecciona equipo</option>';
+
+  teams.forEach((team) => {
+    const isSelected = selectedTeam === team ? 'selected' : '';
+    html += `<option value="${team}" ${isSelected}>${flag(team)} ${team}</option>`;
+  });
+
+  return html;
+}
+
+function cleanRepeatedTeamsInGroup(changedSelect) {
+  const group = changedSelect.dataset.group;
+  const value = changedSelect.value;
+  if (!value) return;
+
+  document.querySelectorAll(`.classification-select[data-group="${group}"]`).forEach((select) => {
+    if (select !== changedSelect && select.value === value) {
+      select.value = '';
+    }
+  });
+}
+
+function limitBestThirds(changedSelect) {
+  if (!changedSelect.classList.contains('third-select')) return;
+
+  const thirds = [...document.querySelectorAll('.third-select')].filter((select) => select.value);
+
+  if (thirds.length > 8) {
+    changedSelect.value = '';
+    setMessage('Ya seleccionaste los 8 mejores terceros. No puedes agregar más terceros.', true);
+  } else if (changedSelect.value) {
+    setMessage(`Este equipo cuenta como mejor tercero. Mejores terceros: ${thirds.length}/8`, false);
+  }
+}
+
+function getR32SelectedTeams() {
+  return [...document.querySelectorAll('.classification-select')]
+    .map((select) => select.value)
+    .filter(Boolean);
+}
+
+function updateR32Hint(hint) {
+  const selectedTeams = getR32SelectedTeams();
+  const thirdCount = [...document.querySelectorAll('.third-select')].filter((select) => select.value).length;
+  hint.textContent = `Selecciona 1.º y 2.º de cada grupo + 8 mejores terceros. Seleccionados: ${selectedTeams.length}/32 · Mejores terceros: ${thirdCount}/8`;
+}
+
+function countThirdPlaceSelections(selectedElements) {
+  const byGroup = {};
+
+  selectedElements.forEach((el) => {
+    const group = el.dataset.group;
+    if (!byGroup[group]) byGroup[group] = 0;
+    byGroup[group]++;
+  });
+
+  return Object.values(byGroup).filter((count) => count >= 3).length;
 }
 
 // ── Render: Leaderboard ───────────────────────────────────────────────────────
@@ -407,6 +553,8 @@ function renderLeaderboard(rows) {
 function renderAdminMatches(matches) {
   if (!adminMatchSelect) return;
 
+  const selectedBefore = adminMatchSelect.value;
+
   adminMatchSelect.innerHTML = '<option value="">Selecciona un partido</option>';
 
   matches.forEach((match) => {
@@ -418,11 +566,65 @@ function renderAdminMatches(matches) {
       ? ` · Resultado: ${match.result.homeGoals}-${match.result.awayGoals}`
       : ' · Sin resultado';
 
+    const lockStatus = match.locked ? ' · 🔒 Bloqueado' : ' · 🔓 Abierto';
+
     option.value = match.id;
-    option.textContent = `${match.id} · ${home} vs ${away}${result}`;
+    option.textContent = `${match.id} · ${home} vs ${away}${result}${lockStatus}`;
+
+    if (match.id === selectedBefore) {
+      option.selected = true;
+    }
 
     adminMatchSelect.appendChild(option);
   });
+
+  ensureAdminLockButton(matches);
+}
+
+function ensureAdminLockButton(matches) {
+  if (!adminResultForm) return;
+
+  let lockBtn = document.getElementById('admin-lock-match-btn');
+
+  if (!lockBtn) {
+    lockBtn = document.createElement('button');
+    lockBtn.type = 'button';
+    lockBtn.id = 'admin-lock-match-btn';
+    lockBtn.className = 'secondary-btn';
+    lockBtn.style.marginTop = '10px';
+    adminResultForm.appendChild(lockBtn);
+  }
+
+  const selectedMatch = matches.find((m) => m.id === adminMatchSelect.value);
+  lockBtn.textContent = selectedMatch?.locked ? '🔓 Desbloquear pronósticos' : '🔒 Bloquear pronósticos';
+
+  adminMatchSelect.onchange = () => {
+    const selectedMatch = matches.find((m) => m.id === adminMatchSelect.value);
+    lockBtn.textContent = selectedMatch?.locked ? '🔓 Desbloquear pronósticos' : '🔒 Bloquear pronósticos';
+  };
+
+  lockBtn.onclick = async () => {
+    const fd = new FormData(adminResultForm);
+    const secret = fd.get('secret');
+    const matchId = fd.get('matchId');
+
+    if (!matchId) {
+      setMessage('Debes seleccionar un partido para bloquear o desbloquear', true);
+      return;
+    }
+
+    try {
+      await api(`/api/admin/matches/${matchId}/lock`, {
+        method: 'PATCH',
+        headers: { 'x-admin-secret': secret }
+      });
+
+      setMessage('Estado de bloqueo actualizado ✅');
+      await loadData();
+    } catch (e) {
+      setMessage(e.message, true);
+    }
+  };
 }
 
 // ── Data loading ──────────────────────────────────────────────────────────────
