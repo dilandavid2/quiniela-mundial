@@ -57,8 +57,7 @@ const PRELOADED_USERNAMES = [
   'erly',
   'esperanza',
   'leandrodavid',
-  'oscar',
-  'joseagdiaz'
+  'oscar'
 ];
 
 function createPreloadedUser(username) {
