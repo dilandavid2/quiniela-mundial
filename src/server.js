@@ -227,8 +227,7 @@ app.get('/api/leaderboard', requireAuth, (req, res) => {
   const table = db.users
     .filter((user) => {
       const tienePassword = Boolean(user.passwordHash || user.password);
-      const tienePais = Boolean(String(user.country || '').trim());
-      return tienePassword && tienePais;
+      return tienePassword;
     })
     .map((user) => {
       let matchPoints = 0;
