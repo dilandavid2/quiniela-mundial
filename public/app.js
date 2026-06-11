@@ -72,7 +72,8 @@ const PRELOADED_USERNAMES = [
   'erly',
   'esperanza',
   'leandrodavid',
-  'oscar'
+  'oscar',
+  'joseagdiaz'
 ];
 
 // ── Equipos por grupo ─────────────────────────────────────────────────────────
