@@ -9,19 +9,33 @@
   <body>
     <main class="container">
       <h1>⚽ Quiniela Mundial</h1>
+      <p id="message" class="message"></p>
 
       <section id="auth-section" class="card">
         <h2>Ingreso</h2>
-        <div class="auth-grid">
-          <form id="register-form">
-            <h3>Registro</h3>
-            <input name="username" placeholder="Usuario" required />
-            <input name="password" type="password" placeholder="Contraseña" required minlength="4" />
-            <button type="submit">Crear cuenta</button>
-          </form>
+        <div class="auth-switcher">
+          <button id="new-user-mode-btn" type="button" class="auth-mode-btn active">Nuevo usuario</button>
+          <button id="registered-user-mode-btn" type="button" class="auth-mode-btn">Usuario registrado</button>
+        </div>
 
-          <form id="login-form">
-            <h3>Login</h3>
+        <div id="new-user-panel" class="auth-panel">
+          <p class="muted">Selecciona tu usuario pre cargado y completa tu acceso.</p>
+          <div id="preloaded-users" class="preloaded-users"></div>
+
+          <form id="new-user-form" class="hidden mini-auth-form">
+            <p id="new-user-selection" class="selected-user muted">Ningún usuario seleccionado</p>
+            <input type="hidden" name="username" id="new-user-username" />
+            <input name="password" type="password" placeholder="Contraseña" required minlength="4" />
+            <select name="country" id="new-user-country" required>
+              <option value="">País de preferencia</option>
+            </select>
+            <button type="submit">Crear acceso</button>
+          </form>
+        </div>
+
+        <div id="registered-user-panel" class="auth-panel hidden">
+          <form id="login-form" class="mini-auth-form">
+            <p class="muted">Ingresa con tu usuario y contraseña ya registrados.</p>
             <input name="username" placeholder="Usuario" required />
             <input name="password" type="password" placeholder="Contraseña" required />
             <button type="submit">Entrar</button>
@@ -40,7 +54,6 @@
           </div>
           <button id="logout-btn" class="secondary">Salir</button>
         </div>
-        <p id="message" class="message"></p>
 
         <div class="tabs">
           <button class="tab-btn active" data-tab="matches">⚽ Fase de Grupos</button>

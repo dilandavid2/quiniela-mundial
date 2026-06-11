@@ -21,8 +21,57 @@ let dbCache = null;
 const DATA_DIR = path.join(__dirname, '..', 'data');
 const DATA_FILE = path.join(DATA_DIR, 'db.json');
 
+const PRELOADED_USERNAMES = [
+  'abraham',
+  'ricardo',
+  'luisalejandro',
+  'cindy',
+  'carmen',
+  'carito',
+  'amparo',
+  'luisenrique',
+  'dalhyn',
+  'orlando',
+  'german',
+  'leandro',
+  'juanpablo',
+  'emily',
+  'andreina',
+  'luislugo',
+  'luismanuel',
+  'mariavirginia',
+  'mayibe',
+  'milagros',
+  'atilio',
+  'stella',
+  'edward',
+  'wendy',
+  'yovanna',
+  'guillermo',
+  'sebastian',
+  'neida',
+  'elizabeth',
+  'gaby',
+  'gloria',
+  'marcela',
+  'erly',
+  'esperanza',
+  'leandrodavid',
+  'oscar'
+];
+
+function createPreloadedUser(username) {
+  return {
+    id: crypto.randomUUID(),
+    username,
+    password: '',
+    country: '',
+    preloaded: true
+  };
+}
+
 const defaultData = {
-  users: [],
+  users: PRELOADED_USERNAMES.map(createPreloadedUser),
   matches: [
     // ── JORNADA 1 ──────────────────────────────────────────────────────────────
     // Jueves 11 de junio (Inaugural)
@@ -178,6 +227,37 @@ const defaultData = {
 function migrateDb(data) {
   let changed = false;
 
+  if (!Array.isArray(data.users)) {
+    data.users = [];
+    changed = true;
+  }
+
+  PRELOADED_USERNAMES.forEach((username) => {
+    const normalized = String(username).trim().toLowerCase();
+    const user = data.users.find((item) => String(item.username || '').trim().toLowerCase() === normalized);
+
+    if (!user) {
+      data.users.push(createPreloadedUser(username));
+      changed = true;
+      return;
+    }
+
+    if (user.preloaded !== true) {
+      user.preloaded = true;
+      changed = true;
+    }
+
+    if (user.password === undefined && user.passwordHash === undefined) {
+      user.password = '';
+      changed = true;
+    }
+
+    if (user.country === undefined) {
+      user.country = '';
+      changed = true;
+    }
+  });
+
   if (!data.advancement) {
     data.advancement = defaultData.advancement;
     changed = true;
@@ -304,5 +384,6 @@ module.exports = {
   readDb,
   writeDb,
   createId,
+  PRELOADED_USERNAMES,
   DATA_FILE
 };

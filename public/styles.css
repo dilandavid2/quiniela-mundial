@@ -16,6 +16,12 @@ body {
   padding: 24px;
 }
 
+.message {
+  min-height: 24px;
+  font-weight: 600;
+  margin: 0 0 14px;
+}
+
 h1 {
   margin-bottom: 16px;
 }
@@ -32,6 +38,63 @@ h1 {
   display: grid;
   gap: 16px;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.auth-switcher {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.auth-mode-btn {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 999px;
+  padding: 10px 16px;
+  color: #cbd5e1;
+}
+
+.auth-mode-btn.active {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #fff;
+}
+
+.auth-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.preloaded-users {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+}
+
+.preloaded-user-btn {
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 10px;
+  padding: 10px 12px;
+  text-transform: lowercase;
+}
+
+.preloaded-user-btn.selected {
+  background: #1d4ed8;
+  border-color: #60a5fa;
+  color: #fff;
+}
+
+.mini-auth-form {
+  background: rgba(15, 23, 42, 0.45);
+  border: 1px solid #334155;
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.selected-user {
+  margin: 0;
 }
 
 form {

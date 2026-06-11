@@ -2,7 +2,7 @@ const path = require('path');
 const express = require('express');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
-const { initDb, readDb, writeDb, createId } = require('./db');
+const { initDb, readDb, writeDb, createId, PRELOADED_USERNAMES } = require('./db');
 const { calculatePoints, calculateClassificationPoints } = require('./scoring');
 
 const app = express();
@@ -21,7 +21,11 @@ app.use(
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
 function sanitizeUser(user) {
-  return { id: user.id, username: user.username };
+  return {
+    id: user.id,
+    username: user.username,
+    country: user.country || ''
+  };
 }
 
 function requireAuth(req, res, next) {
@@ -36,32 +40,44 @@ function findUserBySession(db, req) {
 }
 
 app.post('/api/auth/register', async (req, res) => {
-  const { username, password } = req.body || {};
+  const { username, password, country } = req.body || {};
+  const normalized = String(username || '').trim().toLowerCase();
+  const selectedCountry = String(country || '').trim();
+  const plainPassword = String(password || '');
 
-  if (!username || !password || password.length < 4) {
-    return res.status(400).json({ error: 'Usuario y contraseña (mínimo 4 caracteres) requeridos' });
+  if (!normalized || !plainPassword || plainPassword.length < 4 || !selectedCountry) {
+    return res.status(400).json({ error: 'Debes elegir un usuario, una contraseña y un país de preferencia' });
+  }
+
+  if (!PRELOADED_USERNAMES.includes(normalized)) {
+    return res.status(400).json({ error: 'Debes seleccionar uno de los usuarios pre cargados' });
   }
 
   const db = readDb();
-  const normalized = String(username).trim().toLowerCase();
+  const existing = db.users.find((user) => String(user.username || '').trim().toLowerCase() === normalized);
 
-  const exists = db.users.some((user) => user.username.toLowerCase() === normalized);
-  if (exists) {
-    return res.status(409).json({ error: 'El usuario ya existe' });
+  if (existing && (existing.passwordHash || existing.password)) {
+    return res.status(409).json({ error: 'Ese usuario ya fue registrado' });
   }
 
-  const passwordHash = await bcrypt.hash(password, 10);
-  const newUser = {
+  const storedUser = existing || {
     id: createId(),
-    username: String(username).trim(),
-    passwordHash
+    username: String(username || '').trim(),
+    preloaded: true
   };
 
-  db.users.push(newUser);
+  delete storedUser.passwordHash;
+  storedUser.password = plainPassword;
+  storedUser.country = selectedCountry;
+  storedUser.preloaded = true;
+
+  if (!existing) {
+    db.users.push(storedUser);
+  }
   writeDb(db);
 
-  req.session.userId = newUser.id;
-  return res.status(201).json({ user: sanitizeUser(newUser) });
+  req.session.userId = storedUser.id;
+  return res.status(existing ? 200 : 201).json({ user: sanitizeUser(storedUser) });
 });
 
 app.post('/api/auth/login', async (req, res) => {
@@ -76,7 +92,11 @@ app.post('/api/auth/login', async (req, res) => {
     return res.status(401).json({ error: 'Credenciales inválidas' });
   }
 
-  const valid = await bcrypt.compare(String(password || ''), user.passwordHash);
+  const plainPassword = String(password || '');
+  const valid = user.passwordHash
+    ? await bcrypt.compare(plainPassword, user.passwordHash)
+    : String(user.password || '') === plainPassword;
+
   if (!valid) {
     return res.status(401).json({ error: 'Credenciales inválidas' });
   }

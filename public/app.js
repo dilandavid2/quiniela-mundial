@@ -5,11 +5,19 @@ const welcomeEl = document.getElementById('welcome');
 const matchesEl = document.getElementById('matches');
 const knockoutEl = document.getElementById('knockout');
 const leaderboardEl = document.getElementById('leaderboard');
-const registerForm = document.getElementById('register-form');
+const newUserModeBtn = document.getElementById('new-user-mode-btn');
+const registeredUserModeBtn = document.getElementById('registered-user-mode-btn');
+const newUserPanel = document.getElementById('new-user-panel');
+const registeredUserPanel = document.getElementById('registered-user-panel');
+const preloadedUsersEl = document.getElementById('preloaded-users');
+const newUserForm = document.getElementById('new-user-form');
 const loginForm = document.getElementById('login-form');
 const logoutBtn = document.getElementById('logout-btn');
 const adminResultForm = document.getElementById('admin-result-form');
 const adminMatchSelect = document.getElementById('admin-match-select');
+const newUserSelectionEl = document.getElementById('new-user-selection');
+const newUserUsernameInput = document.getElementById('new-user-username');
+const newUserCountrySelect = document.getElementById('new-user-country');
 
 // ── Banderas ──────────────────────────────────────────────────────────────────
 const FLAGS = {
@@ -27,6 +35,45 @@ const FLAGS = {
   'Uzbekistán':'🇺🇿','Colombia':'🇨🇴','Estados Unidos':'🇺🇸',
 };
 function flag(team) { return FLAGS[team] || '🏳️'; }
+
+const PRELOADED_USERNAMES = [
+  'abraham',
+  'ricardo',
+  'luisalejandro',
+  'cindy',
+  'carmen',
+  'carito',
+  'amparo',
+  'luisenrique',
+  'dalhyn',
+  'orlando',
+  'german',
+  'leandro',
+  'juanpablo',
+  'emily',
+  'andreina',
+  'luislugo',
+  'luismanuel',
+  'mariavirginia',
+  'mayibe',
+  'milagros',
+  'atilio',
+  'stella',
+  'edward',
+  'wendy',
+  'yovanna',
+  'guillermo',
+  'sebastian',
+  'neida',
+  'elizabeth',
+  'gaby',
+  'gloria',
+  'marcela',
+  'erly',
+  'esperanza',
+  'leandrodavid',
+  'oscar'
+];
 
 // ── Equipos por grupo ─────────────────────────────────────────────────────────
 const ALL_TEAMS_BY_GROUP = {
@@ -56,6 +103,8 @@ const ROUND_CONFIG = [
 // ── Tabs ──────────────────────────────────────────────────────────────────────
 let activeRound = 'r32';
 let classificationData = null;
+let selectedPreloadedUser = '';
+const COUNTRY_OPTIONS = [...new Set(Object.values(ALL_TEAMS_BY_GROUP).flat())];
 
 // ── Avatares ───────────────────────────────────────────────────────────────────
 function avatarColor(name) {
@@ -97,6 +146,49 @@ function setMessage(msg, isError = false) {
   messageEl.textContent = msg;
   messageEl.style.color = isError ? '#f87171' : '#22c55e';
 }
+
+function setAuthMode(mode) {
+  const isNewUser = mode === 'new';
+  newUserModeBtn.classList.toggle('active', isNewUser);
+  registeredUserModeBtn.classList.toggle('active', !isNewUser);
+  newUserPanel.classList.toggle('hidden', !isNewUser);
+  registeredUserPanel.classList.toggle('hidden', isNewUser);
+}
+
+function renderCountryOptions() {
+  newUserCountrySelect.innerHTML = '<option value="">País de preferencia</option>';
+  COUNTRY_OPTIONS.forEach((country) => {
+    const option = document.createElement('option');
+    option.value = country;
+    option.textContent = country;
+    newUserCountrySelect.appendChild(option);
+  });
+}
+
+function renderPreloadedUsers() {
+  preloadedUsersEl.innerHTML = '';
+
+  PRELOADED_USERNAMES.forEach((username) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `preloaded-user-btn${selectedPreloadedUser === username ? ' selected' : ''}`;
+    button.textContent = username;
+    button.addEventListener('click', () => selectPreloadedUser(username));
+    preloadedUsersEl.appendChild(button);
+  });
+}
+
+function selectPreloadedUser(username) {
+  selectedPreloadedUser = username;
+  newUserUsernameInput.value = username;
+  newUserSelectionEl.textContent = `Usuario seleccionado: ${username}`;
+  newUserForm.classList.remove('hidden');
+  renderPreloadedUsers();
+}
+
+renderCountryOptions();
+renderPreloadedUsers();
+setAuthMode('new');
 
 async function api(path, options = {}) {
   const response = await fetch(path, {
@@ -352,7 +444,9 @@ async function refreshSession() {
     const { user } = await api('/api/auth/me');
     authSection.classList.add('hidden');
     appSection.classList.remove('hidden');
-    welcomeEl.textContent = `Bienvenido, ${user.username}`;
+    welcomeEl.textContent = user.country
+      ? `Bienvenido, ${user.username} · ${user.country}`
+      : `Bienvenido, ${user.username}`;
     document.getElementById('user-avatar').innerHTML = avatarHtml(user.username, 'avatar avatar-md');
     await loadData();
   } catch {
@@ -361,13 +455,29 @@ async function refreshSession() {
   }
 }
 
+newUserModeBtn.addEventListener('click', () => setAuthMode('new'));
+registeredUserModeBtn.addEventListener('click', () => setAuthMode('registered'));
+
 // ── Auth forms ────────────────────────────────────────────────────────────────
-registerForm.addEventListener('submit', async (e) => {
+newUserForm.addEventListener('submit', async (e) => {
   e.preventDefault();
-  const fd = new FormData(registerForm);
+  const fd = new FormData(newUserForm);
   try {
-    await api('/api/auth/register', { method:'POST', body:JSON.stringify({ username:fd.get('username'), password:fd.get('password') }) });
-    setMessage('Cuenta creada correctamente'); registerForm.reset(); await refreshSession();
+    await api('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({
+        username: fd.get('username'),
+        password: fd.get('password'),
+        country: fd.get('country')
+      })
+    });
+    setMessage('Usuario creado correctamente');
+    newUserForm.reset();
+    selectedPreloadedUser = '';
+    newUserSelectionEl.textContent = 'Ningún usuario seleccionado';
+    newUserForm.classList.add('hidden');
+    renderPreloadedUsers();
+    await refreshSession();
   } catch (err) { setMessage(err.message, true); }
 });
 
