@@ -889,6 +889,54 @@ adminResultForm?.addEventListener('submit', async (e) => {
   }
 });
 
+// ── Modal: ver pronósticos de todos en un partido ────────────────────────────
+async function openMatchPredictions(matchId) {
+  const modal = document.getElementById('match-preds-modal');
+  const body  = document.getElementById('match-preds-body');
+  const title = document.getElementById('match-preds-title');
+  if (!modal || !body || !title) return;
+
+  body.innerHTML = '<p class="muted" style="text-align:center;padding:20px">Cargando…</p>';
+  modal.classList.remove('hidden');
+
+  try {
+    const { match, rows } = await api(`/api/matches/${matchId}/predictions`);
+    title.textContent = (match.home && match.away)
+      ? `${flag(match.home)} ${match.home}  vs  ${match.away} ${flag(match.away)}`
+      : 'Pronósticos';
+
+    const resultLine = match.result
+      ? `<div class="mpreds-result">Resultado oficial: <strong>${match.result.homeGoals} – ${match.result.awayGoals}</strong></div>`
+      : '';
+
+    const rowsHtml = rows.map(r => {
+      const pred = (r.homeGoals !== null)
+        ? `<span class="mpreds-score">${r.homeGoals} – ${r.awayGoals}</span>`
+        : `<span class="mpreds-no-pred">Sin pronóstico</span>`;
+      const pts = (r.points !== null)
+        ? `<span class="mpreds-pts">${r.points} pts</span>`
+        : '';
+      return `<div class="mpreds-row">
+        ${avatarHtml(r.username, 'avatar avatar-sm', r.avatar)}
+        <span class="mpreds-name">${r.username}</span>
+        ${pred}
+        ${pts}
+      </div>`;
+    }).join('');
+
+    body.innerHTML = resultLine + `<div class="mpreds-list">${rowsHtml}</div>`;
+  } catch (e) {
+    body.innerHTML = `<p class="muted" style="color:var(--danger);text-align:center;padding:20px">${e.message}</p>`;
+  }
+}
+
+document.getElementById('match-preds-close')?.addEventListener('click', () => {
+  document.getElementById('match-preds-modal')?.classList.add('hidden');
+});
+document.getElementById('match-preds-modal')?.addEventListener('click', (e) => {
+  if (e.target.id === 'match-preds-modal') e.target.classList.add('hidden');
+});
+
 // ── Admin: editar usuarios ──────────────────────────────────────────────────
 const ADMIN_SECRET_USERS = 'diaz-admin';
 let editingUserId = null;
