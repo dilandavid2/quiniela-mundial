@@ -263,6 +263,8 @@ function buildMatchCard(match) {
     ? `<div class="match-points-row"><span class="pts-badge">${match.points} pts</span>${match.pointsReason}</div>`
     : '';
 
+  const showViewBtn = match.locked || Boolean(match.result);
+
   card.innerHTML = `
     <div class="match-meta-top">
       <span class="match-phase-badge">${badge}${lockIcon}</span>
@@ -283,7 +285,12 @@ function buildMatchCard(match) {
       </div>
     </div>
     ${pointsHtml}
+    ${showViewBtn ? `<button class="btn-ver-resultados" data-match-id="${match.id}">👁 Ver pronósticos</button>` : ''}
   `;
+
+  if (showViewBtn) {
+    card.querySelector('.btn-ver-resultados').addEventListener('click', () => openMatchPredictions(match.id));
+  }
 
   return card;
 }

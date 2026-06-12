@@ -232,6 +232,31 @@ app.post('/api/predictions/:matchId', requireAuth, (req, res) => {
   return res.json({ ok: true });
 });
 
+// ── Ver pronósticos de todos en un partido ───────────────────────────────────────
+app.get('/api/matches/:matchId/predictions', requireAuth, (req, res) => {
+  const { matchId } = req.params;
+  const db = readDb();
+  const match = db.matches.find((m) => m.id === matchId);
+  if (!match) return res.status(404).json({ error: 'Partido no encontrado' });
+  if (!match.locked && !match.result) {
+    return res.status(403).json({ error: 'Solo visible cuando el partido está bloqueado o tiene resultado' });
+  }
+  const registeredUsers = db.users.filter((u) => u.password || u.passwordHash);
+  const rows = registeredUsers.map((u) => {
+    const pred = db.predictions.find((p) => p.userId === u.id && p.matchId === matchId);
+    const pointsInfo = (match.result && pred) ? calculatePoints(pred, match.result) : null;
+    return {
+      username: u.username,
+      avatar: u.avatar || null,
+      homeGoals: pred !== undefined ? pred.homeGoals : null,
+      awayGoals: pred !== undefined ? pred.awayGoals : null,
+      points: pointsInfo ? pointsInfo.points : null,
+      reason: pointsInfo ? pointsInfo.reason : null
+    };
+  }).sort((a, b) => (b.points ?? -1) - (a.points ?? -1));
+  return res.json({ match: { home: match.home, away: match.away, result: match.result }, rows });
+});
+
 app.get('/api/leaderboard', requireAuth, (req, res) => {
   const db = readDb();
 

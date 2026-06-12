@@ -790,6 +790,104 @@ button.secondary {
   font-family: inherit;
 }
 
+/* ── Botón Ver pronósticos ────────────────────────────────────────── */
+.btn-ver-resultados {
+  width: 100%;
+  margin-top: 10px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.2s, color 0.2s;
+}
+.btn-ver-resultados:hover { border-color: var(--accent-light); color: var(--accent-light); }
+
+/* ── Modal pronósticos de partido ───────────────────────────────────────── */
+.mpreds-result {
+  font-size: 0.85rem;
+  text-align: center;
+  color: var(--text-muted);
+  padding: 8px 0 14px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 10px;
+}
+.mpreds-list { display: flex; flex-direction: column; gap: 6px; }
+.mpreds-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--surface-2);
+  border-radius: 12px;
+  font-size: 0.88rem;
+}
+.mpreds-name { flex: 1; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mpreds-score { font-weight: 800; font-size: 1rem; color: var(--text); white-space: nowrap; }
+.mpreds-no-pred { color: var(--text-muted); font-style: italic; font-size: 0.8rem; }
+.mpreds-pts {
+  font-weight: 700;
+  font-size: 0.78rem;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 20px;
+  padding: 2px 8px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── Botón Ver pronósticos ──────────────────────────────────────────────────── */
+.btn-ver-resultados {
+  width: 100%;
+  margin-top: 10px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.2s, color 0.2s;
+}
+.btn-ver-resultados:hover { border-color: var(--accent-light); color: var(--accent-light); }
+
+/* ── Modal pronósticos de partido ───────────────────────────────────────────── */
+.mpreds-result {
+  font-size: 0.85rem;
+  text-align: center;
+  color: var(--text-muted);
+  padding: 8px 0 14px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 10px;
+}
+.mpreds-list { display: flex; flex-direction: column; gap: 6px; }
+.mpreds-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--surface-2);
+  border-radius: 12px;
+  font-size: 0.88rem;
+}
+.mpreds-name { flex: 1; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mpreds-score { font-weight: 800; font-size: 1rem; color: var(--text); white-space: nowrap; }
+.mpreds-no-pred { color: var(--text-muted); font-style: italic; font-size: 0.8rem; }
+.mpreds-pts {
+  font-weight: 700;
+  font-size: 0.78rem;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 20px;
+  padding: 2px 8px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 /* ── Tabla ──────────────────────────────────────────────────────────────── */
 .table-wrapper {
   overflow-x: auto;
