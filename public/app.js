@@ -220,7 +220,7 @@ function buildMatchCard(match) {
   card.className = 'match-card';
 
   const prediction = match.prediction || { homeGoals: '', awayGoals: '' };
-  const locked = Boolean(match.locked) || Date.now() >= new Date(match.lockoutAt).getTime();
+  const locked = Boolean(match.locked);
   const hasTeams = match.home && match.away;
   const canPredict = hasTeams && !locked;
 

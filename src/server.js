@@ -203,13 +203,13 @@ app.post('/api/predictions/:matchId', requireAuth, (req, res) => {
     return res.status(400).json({ error: 'Los equipos de este partido aún no están definidos' });
   }
 
-  // Bloquear 5 minutos antes del kickoff (UTC)
+  /*loquear 5 minutos antes del kickoff (UTC)
   const lockoutAt = new Date(match.kickoff).getTime() - PREDICTION_LOCKOUT_MINUTES * 60 * 1000;
   if (Date.now() >= lockoutAt) {
     return res.status(400).json({
       error: `El cierre de pronósticos es ${PREDICTION_LOCKOUT_MINUTES} minutos antes del partido`
     });
-  }
+  }*/
 
   const existing = db.predictions.find(
     (item) => item.userId === user.id && item.matchId === matchId
