@@ -17,6 +17,8 @@ const adminMatchSelect = document.getElementById('admin-match-select');
 const newUserSelectionEl = document.getElementById('new-user-selection');
 const newUserUsernameInput = document.getElementById('new-user-username');
 const newUserCountrySelect = document.getElementById('new-user-country');
+let currentUsername = '';
+let isJoseAdmin = false;
 
 // ── Banderas ──────────────────────────────────────────────────────────────────
 const FLAGS = {
@@ -220,7 +222,8 @@ function buildMatchCard(match) {
   card.className = 'match-card';
 
   const prediction = match.prediction || { homeGoals: '', awayGoals: '' };
-  const locked = Boolean(match.locked);
+  const lockedByTime = Date.now() >= new Date(match.lockoutAt).getTime();
+  const locked = Boolean(match.locked) || lockedByTime;
   const hasTeams = match.home && match.away;
   const canPredict = hasTeams && !locked;
 
@@ -231,7 +234,7 @@ function buildMatchCard(match) {
   const badge = match.group
     ? `Grupo ${match.group}`
     : (match.homeDesc ? `${match.homeDesc} vs ${match.awayDesc}` : (match.phase || ''));
-  const lockIcon = match.locked ? ' 🔒' : '';
+  const lockIcon = locked ? ' 🔒' : '';
 
   const homeLabel = hasTeams ? match.home : (match.homeDesc || 'Por definir');
   const awayLabel = hasTeams ? match.away : (match.awayDesc || 'Por definir');
@@ -682,7 +685,7 @@ function ensureAdminLockButton(matches) {
 
   lockBtn.onclick = async () => {
     const fd = new FormData(adminResultForm);
-    const secret = fd.get('secret');
+    const secret = isJoseAdmin ? '' : fd.get('secret');
     const matchId = fd.get('matchId');
 
     if (!matchId) {
@@ -691,9 +694,12 @@ function ensureAdminLockButton(matches) {
     }
 
     try {
+      const headers = {};
+      if (secret) headers['x-admin-secret'] = secret;
+
       await api(`/api/admin/matches/${matchId}/lock`, {
         method: 'PATCH',
-        headers: { 'x-admin-secret': secret }
+        headers
       });
 
       setMessage('Estado de bloqueo actualizado ✅');
@@ -722,8 +728,23 @@ async function loadData() {
 async function refreshSession() {
   try {
     const { user } = await api('/api/auth/me');
+    currentUsername = String(user.username || '').trim().toLowerCase();
+    isJoseAdmin = currentUsername === 'joseagdiaz';
     authSection.classList.add('hidden');
     appSection.classList.remove('hidden');
+
+    const adminSecretInput = adminResultForm?.querySelector('input[name="secret"]');
+    if (adminSecretInput) {
+      if (isJoseAdmin) {
+        adminSecretInput.required = false;
+        adminSecretInput.value = '';
+        adminSecretInput.classList.add('hidden');
+      } else {
+        adminSecretInput.required = true;
+        adminSecretInput.classList.remove('hidden');
+      }
+    }
+
     // Avatar pequeño en el header
     document.getElementById('user-avatar').innerHTML = avatarHtml(user.username, 'avatar avatar-sm', user.avatar);
     // Datos del perfil
@@ -752,6 +773,8 @@ async function refreshSession() {
       : '';
     await loadData();
   } catch {
+    currentUsername = '';
+    isJoseAdmin = false;
     authSection.classList.remove('hidden');
     appSection.classList.add('hidden');
   }
@@ -850,7 +873,7 @@ adminResultForm?.addEventListener('submit', async (e) => {
   e.preventDefault();
 
   const fd = new FormData(adminResultForm);
-  const secret = fd.get('secret');
+  const secret = isJoseAdmin ? '' : fd.get('secret');
   const matchId = fd.get('matchId');
   const homeGoals = Number(fd.get('homeGoals'));
   const awayGoals = Number(fd.get('awayGoals'));
@@ -873,11 +896,12 @@ adminResultForm?.addEventListener('submit', async (e) => {
   }
 
   try {
+    const headers = {};
+    if (secret) headers['x-admin-secret'] = secret;
+
     await api(`/api/admin/matches/${matchId}/result`, {
       method: 'POST',
-      headers: {
-        'x-admin-secret': secret
-      },
+      headers,
       body: JSON.stringify({ homeGoals, awayGoals })
     });
 
@@ -974,6 +998,19 @@ function showUsersStep(step) {
 document.getElementById('open-edit-users-btn')?.addEventListener('click', () => {
   adminModal?.classList.add('hidden');
   usersModal?.classList.remove('hidden');
+  if (isJoseAdmin) {
+    const headers = {};
+    api('/api/admin/users', { headers })
+      .then(({ users }) => {
+        renderUsersList(users);
+        showUsersStep(usersListStep);
+      })
+      .catch((e) => {
+        if (usersAuthError) usersAuthError.textContent = e.message;
+      });
+    return;
+  }
+
   showUsersStep(usersAuthStep);
   if (usersAdminSecret) { usersAdminSecret.value = ''; usersAdminSecret.focus(); }
   if (usersAuthError) usersAuthError.textContent = '';

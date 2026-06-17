@@ -8,6 +8,7 @@ const { calculatePoints, calculateClassificationPoints } = require('./scoring');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const PREDICTION_LOCKOUT_MINUTES = 5;
+const ADMIN_USERNAME_NO_SECRET = 'joseagdiaz';
 
 app.use(express.json());
 app.use(
@@ -39,6 +40,19 @@ function requireAuth(req, res, next) {
 
 function findUserBySession(db, req) {
   return db.users.find((user) => user.id === req.session.userId);
+}
+
+function isAdminAuthorized(req, db) {
+  const providedSecret = String(req.headers['x-admin-secret'] || '').trim();
+  const envAdminSecret = process.env.ADMIN_SECRET || 'admin-demo';
+
+  if (providedSecret && (providedSecret === envAdminSecret || providedSecret === 'diaz-admin')) {
+    return true;
+  }
+
+  const sessionUser = findUserBySession(db, req);
+  const normalizedUsername = String(sessionUser?.username || '').trim().toLowerCase();
+  return normalizedUsername === ADMIN_USERNAME_NO_SECRET;
 }
 
 app.post('/api/auth/register', async (req, res) => {
@@ -203,13 +217,13 @@ app.post('/api/predictions/:matchId', requireAuth, (req, res) => {
     return res.status(400).json({ error: 'Los equipos de este partido aún no están definidos' });
   }
 
-  /*loquear 5 minutos antes del kickoff (UTC)
+  // Bloquear 5 minutos antes del kickoff (UTC)
   const lockoutAt = new Date(match.kickoff).getTime() - PREDICTION_LOCKOUT_MINUTES * 60 * 1000;
   if (Date.now() >= lockoutAt) {
     return res.status(400).json({
       error: `El cierre de pronósticos es ${PREDICTION_LOCKOUT_MINUTES} minutos antes del partido`
     });
-  }*/
+  }
 
   const existing = db.predictions.find(
     (item) => item.userId === user.id && item.matchId === matchId
@@ -299,10 +313,8 @@ app.get('/api/leaderboard', requireAuth, (req, res) => {
   return res.json({ leaderboard: table });
 });
 app.post('/api/admin/matches/:matchId/result', (req, res) => {
-  const adminSecret = process.env.ADMIN_SECRET || 'admin-demo';
-  const providedSecret = req.headers['x-admin-secret'];
-
-  if (providedSecret !== adminSecret) {
+  const db = readDb();
+  if (!isAdminAuthorized(req, db)) {
     return res.status(403).json({ error: 'No autorizado para cargar resultados' });
   }
 
@@ -321,7 +333,6 @@ app.post('/api/admin/matches/:matchId/result', (req, res) => {
     return res.status(400).json({ error: 'Resultado inválido' });
   }
 
-  const db = readDb();
   const match = db.matches.find((item) => item.id === matchId);
 
   if (!match) {
@@ -335,15 +346,12 @@ app.post('/api/admin/matches/:matchId/result', (req, res) => {
 });
 
 app.patch('/api/admin/matches/:matchId/lock', (req, res) => {
-  const adminSecret = process.env.ADMIN_SECRET || 'admin-demo';
-  const providedSecret = req.headers['x-admin-secret'];
-
-  if (providedSecret !== adminSecret) {
+  const db = readDb();
+  if (!isAdminAuthorized(req, db)) {
     return res.status(403).json({ error: 'No autorizado para bloquear partidos' });
   }
 
   const { matchId } = req.params;
-  const db = readDb();
   const match = db.matches.find((item) => item.id === matchId);
 
   if (!match) {
@@ -357,12 +365,11 @@ app.patch('/api/admin/matches/:matchId/lock', (req, res) => {
 });
 // ── Admin: asignar equipos a partido de fase final ──────────────────────────
 app.post('/api/admin/matches/:matchId/teams', (req, res) => {
-  const adminSecret = process.env.ADMIN_SECRET || 'admin-demo';
-  if (req.headers['x-admin-secret'] !== adminSecret) return res.status(403).json({ error: 'No autorizado' });
+  const db = readDb();
+  if (!isAdminAuthorized(req, db)) return res.status(403).json({ error: 'No autorizado' });
 
   const { matchId } = req.params;
   const { home, away } = req.body || {};
-  const db = readDb();
   const match = db.matches.find((m) => m.id === matchId);
   if (!match) return res.status(404).json({ error: 'Partido no encontrado' });
 
@@ -374,15 +381,14 @@ app.post('/api/admin/matches/:matchId/teams', (req, res) => {
 
 // ── Admin: registrar equipos clasificados a una fase ─────────────────────────
 app.post('/api/admin/advancement/:round', (req, res) => {
-  const adminSecret = process.env.ADMIN_SECRET || 'admin-demo';
-  if (req.headers['x-admin-secret'] !== adminSecret) return res.status(403).json({ error: 'No autorizado' });
+  const db = readDb();
+  if (!isAdminAuthorized(req, db)) return res.status(403).json({ error: 'No autorizado' });
 
   const { round } = req.params;
   const validRounds = ['r32', 'r16', 'qf', 'sf', 'final', 'champion'];
   if (!validRounds.includes(round)) return res.status(400).json({ error: 'Ronda inválida' });
 
   const { teams, team, lock } = req.body || {};
-  const db = readDb();
   if (!db.advancement) db.advancement = {};
 
   if (round === 'champion') {
@@ -490,14 +496,12 @@ app.post('/api/classification/:round', requireAuth, (req, res) => {
   return res.json({ ok: true });
 });
 
-const ADMIN_USER_SECRET = 'diaz-admin';
-
 // ── Admin: listar todos los usuarios registrados ─────────────────────────────
 app.get('/api/admin/users', (req, res) => {
-  if (req.headers['x-admin-secret'] !== ADMIN_USER_SECRET) {
+  const db = readDb();
+  if (!isAdminAuthorized(req, db)) {
     return res.status(403).json({ error: 'Clave admin incorrecta' });
   }
-  const db = readDb();
   const users = db.users
     .filter((u) => u.password || u.passwordHash)
     .map((u) => ({
@@ -511,12 +515,12 @@ app.get('/api/admin/users', (req, res) => {
 
 // ── Admin: editar usuario ────────────────────────────────────────────────────
 app.patch('/api/admin/users/:userId', (req, res) => {
-  if (req.headers['x-admin-secret'] !== ADMIN_USER_SECRET) {
+  const db = readDb();
+  if (!isAdminAuthorized(req, db)) {
     return res.status(403).json({ error: 'Clave admin incorrecta' });
   }
   const { userId } = req.params;
   const { username, password, country, avatar } = req.body || {};
-  const db = readDb();
   const user = db.users.find((u) => u.id === userId);
   if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
 
