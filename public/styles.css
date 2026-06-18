@@ -998,3 +998,20 @@ button.secondary {
 
 .gt-row.qualifies { background: rgba(59,130,246,0.09); }
 .gt-row.third     { background: rgba(234,179,8,0.07); }
+
+.go-last-result-btn {
+  position: fixed;
+  right: 18px;
+  bottom: 88px;
+  z-index: 50;
+  border-radius: 999px;
+  padding: 12px 18px;
+  background: var(--accent);
+  color: white;
+  font-weight: 700;
+  box-shadow: 0 10px 24px rgba(0,0,0,.35);
+}
+
+.go-last-result-btn.hidden {
+  display: none;
+}

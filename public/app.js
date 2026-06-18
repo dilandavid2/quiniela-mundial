@@ -220,6 +220,7 @@ async function api(path, options = {}) {
 function buildMatchCard(match) {
   const card = document.createElement('div');
   card.className = 'match-card';
+  card.dataset.matchCardId = match.id;
 
   const prediction = match.prediction || { homeGoals: '', awayGoals: '' };
   const lockedByTime = Date.now() >= new Date(match.lockoutAt).getTime();
@@ -630,6 +631,12 @@ function renderLeaderboard(rows) {
   });
 }
 
+function getLastMatchWithResult(matches) {
+  return [...matches]
+    .filter((m) => m.result)
+    .sort((a, b) => new Date(b.kickoff) - new Date(a.kickoff))[0] || null;
+}
+
 function renderAdminMatches(matches) {
   if (!adminMatchSelect) return;
 
@@ -657,6 +664,11 @@ function renderAdminMatches(matches) {
 
     adminMatchSelect.appendChild(option);
   });
+
+  const lastResult = getLastMatchWithResult(matches);
+  if (lastResult) {
+    adminMatchSelect.value = lastResult.id;
+  }
 
   ensureAdminLockButton(matches);
 }
@@ -723,6 +735,18 @@ async function loadData() {
   renderGroupStandings(matches);
   renderLeaderboard(leaderboard);
   renderAdminMatches(matches);
+  const lastResult = getLastMatchWithResult(matches);
+  const btn = document.getElementById('go-last-result-btn');
+
+  if (btn && lastResult) {
+    btn.classList.remove('hidden');
+    btn.onclick = () => {
+      const card = document.querySelector(`[data-match-card-id="${lastResult.id}"]`);
+      if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    };
+  } else if (btn) {
+    btn.classList.add('hidden');
+  }
 }
 
 async function refreshSession() {
