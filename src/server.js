@@ -209,7 +209,7 @@ app.post('/api/predictions/:matchId', requireAuth, (req, res) => {
     return res.status(404).json({ error: 'Partido no encontrado' });
   }
 
-  if (match.locked) {
+  if (match.locked === true) {
     return res.status(400).json({ error: 'Los pronósticos de este partido están bloqueados por el administrador' });
   }
 
@@ -219,7 +219,8 @@ app.post('/api/predictions/:matchId', requireAuth, (req, res) => {
 
   // Bloquear 5 minutos antes del kickoff (UTC)
   const lockoutAt = new Date(match.kickoff).getTime() - PREDICTION_LOCKOUT_MINUTES * 60 * 1000;
-  if (Date.now() >= lockoutAt) {
+
+  if (match.locked !== false && Date.now() >= lockoutAt) {
     return res.status(400).json({
       error: `El cierre de pronósticos es ${PREDICTION_LOCKOUT_MINUTES} minutos antes del partido`
     });
@@ -358,7 +359,7 @@ app.patch('/api/admin/matches/:matchId/lock', (req, res) => {
     return res.status(404).json({ error: 'Partido no encontrado' });
   }
 
-  match.locked = !Boolean(match.locked);
+  match.locked = match.locked === true ? false : true;
   writeDb(db);
 
   return res.json({ ok: true, match });
