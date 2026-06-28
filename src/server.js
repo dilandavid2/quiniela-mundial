@@ -310,9 +310,9 @@ app.get('/api/matches', requireAuth, (req, res) => {
     ).toISOString();
     // Solo calcular puntos si el partido tiene resultado Y equipos reales definidos
     const hasTeams = match.home && match.away;
-    const pointsInfo = (match.result && hasTeams)
+    const pointsInfo = (match.result && hasTeams && !isMatchExcludedFromScoring(match))
       ? calculatePoints(prediction, match.result, match)
-      : { points: null, reason: 'Pendiente' };
+      : { points: null, reason: isMatchExcludedFromScoring(match) ? 'Sin puntaje' : 'Pendiente' };
     return {
       id: match.id,
       phase: match.phase || 'group',
@@ -451,6 +451,7 @@ app.get('/api/leaderboard', requireAuth, (req, res) => {
 
       db.matches.forEach((match) => {
         if (!match.result || !match.home || !match.away) return;
+        if (isMatchExcludedFromScoring(match)) return;
 
         const prediction = db.predictions.find(
           (item) => item.userId === user.id && item.matchId === match.id
@@ -541,6 +542,30 @@ app.patch('/api/admin/matches/:matchId/lock', (req, res) => {
   writeDb(db);
 
   return res.json({ ok: true, match });
+});
+
+app.patch('/api/admin/matches/:matchId/kickoff', (req, res) => {
+  const db = readDb();
+
+  if (!isAdminAuthorized(req, db)) {
+    return res.status(403).json({ error: 'No autorizado' });
+  }
+
+  const { matchId } = req.params;
+  const { kickoff } = req.body || {};
+
+  const match = db.matches.find((m) => m.id === matchId);
+  if (!match) return res.status(404).json({ error: 'Partido no encontrado' });
+
+  const date = new Date(kickoff);
+  if (Number.isNaN(date.getTime())) {
+    return res.status(400).json({ error: 'Fecha u hora inválida' });
+  }
+
+  match.kickoff = date.toISOString();
+
+  writeDb(db);
+  return res.json({ ok: true, kickoff: match.kickoff });
 });
 // ── Admin: asignar equipos a partido de fase final ──────────────────────────
 app.post('/api/admin/matches/:matchId/teams', (req, res) => {

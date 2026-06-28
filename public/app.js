@@ -177,6 +177,10 @@ function isKnockoutPhase(phase) {
   return ['r32', 'r16', 'qf', 'sf', 'third', 'final'].includes(phase);
 }
 
+function isMatchExcludedFromScoring(match) {
+  return match.excludeFromScoring === true;
+}
+
 function renderPreloadedUsers() {
   preloadedUsersEl.innerHTML = '';
   const available = PRELOADED_USERNAMES.filter(u => !registeredUsernames.has(u.toLowerCase()));
@@ -415,7 +419,9 @@ function renderKnockout(matches) {
     knockoutEl.appendChild(h);
     const grid = document.createElement('div');
     grid.className = 'matches-grid';
-    phaseMatches.forEach((m) => grid.appendChild(buildMatchCard(m)));
+    phaseMatches
+      .sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff))
+      .forEach((m) => grid.appendChild(buildMatchCard(m)));
     knockoutEl.appendChild(grid);
   });
 }
@@ -755,7 +761,7 @@ function renderAdminMatches(matches) {
 
   adminMatchSelect.innerHTML = '<option value="">Selecciona un partido</option>';
 
-  matches.forEach((match) => {
+  [...matches].sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff)).forEach((match) => {
     const option = document.createElement('option');
 
     const home = match.home || match.homeDesc || 'Por definir';
@@ -782,6 +788,7 @@ function renderAdminMatches(matches) {
   }
 
   ensureAdminLockButton(matches);
+  ensureAdminKickoffEditor(matches);
 }
 
 function ensureAdminLockButton(matches) {
@@ -826,6 +833,77 @@ function ensureAdminLockButton(matches) {
       });
 
       setMessage('Estado de bloqueo actualizado ✅');
+      await loadData();
+    } catch (e) {
+      setMessage(e.message, true);
+    }
+  };
+}
+
+function ensureAdminKickoffEditor(matches) {
+  if (!adminResultForm) return;
+
+  let kickoffInput = document.getElementById('admin-kickoff-input');
+  let kickoffBtn = document.getElementById('admin-kickoff-btn');
+
+  if (!kickoffInput) {
+    kickoffInput = document.createElement('input');
+    kickoffInput.type = 'datetime-local';
+    kickoffInput.id = 'admin-kickoff-input';
+    kickoffInput.name = 'kickoffEditor';
+    kickoffInput.style.marginTop = '10px';
+
+    adminMatchSelect.insertAdjacentElement('afterend', kickoffInput);
+  }
+
+  if (!kickoffBtn) {
+    kickoffBtn = document.createElement('button');
+    kickoffBtn.type = 'button';
+    kickoffBtn.id = 'admin-kickoff-btn';
+    kickoffBtn.className = 'secondary-btn';
+    kickoffBtn.textContent = '🕒 Guardar horario';
+    kickoffBtn.style.marginTop = '10px';
+
+    kickoffInput.insertAdjacentElement('afterend', kickoffBtn);
+  }
+
+  function fillKickoffInput() {
+    const selectedMatch = matches.find((m) => m.id === adminMatchSelect.value);
+    if (!selectedMatch) return;
+
+    const date = new Date(selectedMatch.kickoff);
+    kickoffInput.value = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+      .toISOString()
+      .slice(0, 16);
+  }
+
+  fillKickoffInput();
+
+  adminMatchSelect.addEventListener('change', fillKickoffInput);
+
+  kickoffBtn.onclick = async () => {
+    const fd = new FormData(adminResultForm);
+    const secret = isJoseAdmin ? '' : fd.get('secret');
+    const matchId = fd.get('matchId');
+
+    if (!matchId || !kickoffInput.value) {
+      setMessage('Selecciona partido y horario', true);
+      return;
+    }
+
+    try {
+      const headers = {};
+      if (secret) headers['x-admin-secret'] = secret;
+
+      await api(`/api/admin/matches/${matchId}/kickoff`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({
+          kickoff: new Date(kickoffInput.value).toISOString()
+        })
+      });
+
+      setMessage('Horario actualizado ✅');
       await loadData();
     } catch (e) {
       setMessage(e.message, true);
