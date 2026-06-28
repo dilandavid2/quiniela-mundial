@@ -3,7 +3,7 @@ const express = require('express');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const { initDb, readDb, writeDb, createId, PRELOADED_USERNAMES } = require('./db');
-const { calculatePoints, calculateClassificationPoints } = require('./scoring');
+const { calculatePoints, calculateClassificationPoints, isKnockoutPhase } = require('./scoring');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -311,7 +311,7 @@ app.get('/api/matches', requireAuth, (req, res) => {
     // Solo calcular puntos si el partido tiene resultado Y equipos reales definidos
     const hasTeams = match.home && match.away;
     const pointsInfo = (match.result && hasTeams)
-      ? calculatePoints(prediction, match.result)
+      ? calculatePoints(prediction, match.result, match)
       : { points: null, reason: 'Pendiente' };
     return {
       id: match.id,
@@ -326,7 +326,7 @@ app.get('/api/matches', requireAuth, (req, res) => {
       result: match.result,
       locked: Boolean(match.locked),
       prediction: prediction
-        ? { homeGoals: prediction.homeGoals, awayGoals: prediction.awayGoals }
+        ? { homeGoals: prediction.homeGoals, awayGoals: prediction.awayGoals, winner: prediction.winner || null }
         : null,
       points: pointsInfo.points,
       pointsReason: pointsInfo.reason
@@ -338,7 +338,7 @@ app.get('/api/matches', requireAuth, (req, res) => {
 
 app.post('/api/predictions/:matchId', requireAuth, (req, res) => {
   const { matchId } = req.params;
-  const { homeGoals, awayGoals } = req.body || {};
+  const { homeGoals, awayGoals, winner } = req.body || {};
 
   if (
     !Number.isInteger(homeGoals) ||
@@ -362,6 +362,12 @@ app.post('/api/predictions/:matchId', requireAuth, (req, res) => {
   const match = db.matches.find((item) => item.id === matchId);
   if (!match) {
     return res.status(404).json({ error: 'Partido no encontrado' });
+  }
+
+  const knockout = isKnockoutPhase(match.phase);
+
+  if (knockout && homeGoals === awayGoals && !['home', 'away'].includes(winner)) {
+    return res.status(400).json({ error: 'En eliminatorias debes elegir quién clasifica si el marcador es empate' });
   }
 
   if (match.locked === true) {
@@ -388,13 +394,15 @@ app.post('/api/predictions/:matchId', requireAuth, (req, res) => {
   if (existing) {
     existing.homeGoals = homeGoals;
     existing.awayGoals = awayGoals;
+    existing.winner = knockout && homeGoals === awayGoals ? winner : null;
   } else {
     db.predictions.push({
       id: createId(),
       userId: user.id,
       matchId,
       homeGoals,
-      awayGoals
+      awayGoals,
+      winner: knockout && homeGoals === awayGoals ? winner : null
     });
   }
 
@@ -416,7 +424,7 @@ app.get('/api/matches/:matchId/predictions', requireAuth, (req, res) => {
   const registeredUsers = db.users.filter((u) => u.password || u.passwordHash);
   const rows = registeredUsers.map((u) => {
     const pred = db.predictions.find((p) => p.userId === u.id && p.matchId === matchId);
-    const pointsInfo = (match.result && pred) ? calculatePoints(pred, match.result) : null;
+    const pointsInfo = (match.result && pred) ? calculatePoints(pred, match.result, match) : null;
     return {
       username: u.username,
       avatar: u.avatar || null,
@@ -447,7 +455,7 @@ app.get('/api/leaderboard', requireAuth, (req, res) => {
         const prediction = db.predictions.find(
           (item) => item.userId === user.id && item.matchId === match.id
         );
-        const pointsInfo = calculatePoints(prediction, match.result);
+        const pointsInfo = calculatePoints(prediction, match.result, match);
         matchPoints += pointsInfo.points;
         if (pointsInfo.reason === 'Marcador exacto') exactScores += 1;
       });
@@ -481,6 +489,7 @@ app.post('/api/admin/matches/:matchId/result', (req, res) => {
   const { matchId } = req.params;
   const homeGoals = Number(req.body?.homeGoals);
   const awayGoals = Number(req.body?.awayGoals);
+  const winner = req.body?.winner;
 
   if (
     !Number.isInteger(homeGoals) ||
@@ -499,7 +508,17 @@ app.post('/api/admin/matches/:matchId/result', (req, res) => {
     return res.status(404).json({ error: 'Partido no encontrado' });
   }
 
-  match.result = { homeGoals, awayGoals };
+  const knockout = isKnockoutPhase(match.phase);
+
+  if (knockout && homeGoals === awayGoals && !['home', 'away'].includes(winner)) {
+    return res.status(400).json({ error: 'En eliminatorias debes indicar quién clasificó si el resultado fue empate' });
+  }
+
+  match.result = {
+    homeGoals,
+    awayGoals,
+    winner: knockout && homeGoals === awayGoals ? winner : null
+  };
   writeDb(db);
 
   return res.json({ ok: true, match });

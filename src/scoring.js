@@ -4,24 +4,60 @@ function getOutcome(homeGoals, awayGoals) {
 }
 
 // ── Puntos por marcador de partido ───────────────────────────────────────────
-function calculatePoints(prediction, result) {
+function isKnockoutPhase(phase) {
+  return ['r32', 'r16', 'qf', 'sf', 'third', 'final'].includes(phase);
+}
+
+function calculatePoints(prediction, result, match = {}) {
   if (!prediction || !result) {
     return { points: 0, reason: 'Sin resultado o sin pronóstico' };
   }
 
-  if (prediction.homeGoals === result.homeGoals && prediction.awayGoals === result.awayGoals) {
+  const knockout = isKnockoutPhase(match.phase);
+  const exactScore =
+    prediction.homeGoals === result.homeGoals &&
+    prediction.awayGoals === result.awayGoals;
+
+  const predictedOutcome = getOutcome(prediction.homeGoals, prediction.awayGoals);
+  const realOutcome = getOutcome(result.homeGoals, result.awayGoals);
+
+  const predictionWinner = prediction.winner || null;
+  const resultWinner = result.winner || null;
+  const winnerCorrect = knockout && resultWinner && predictionWinner === resultWinner;
+
+  if (knockout && realOutcome === 'draw') {
+    if (exactScore && winnerCorrect) {
+      return { points: 7, reason: 'Marcador exacto + clasificado correcto' };
+    }
+
+    if (exactScore && resultWinner && predictionWinner && !winnerCorrect) {
+      return { points: 5, reason: 'Empate exacto, pero clasificado incorrecto' };
+    }
+
+    if (predictedOutcome === 'draw' && winnerCorrect) {
+      return { points: 4, reason: 'Empate correcto + clasificado correcto' };
+    }
+
+    if (predictedOutcome === 'draw') {
+      return { points: 3, reason: 'Empate correcto' };
+    }
+  }
+
+  if (exactScore) {
     return { points: 7, reason: 'Marcador exacto' };
   }
 
   let points = 0;
   const reasons = [];
 
-  const predictedOutcome = getOutcome(prediction.homeGoals, prediction.awayGoals);
-  const realOutcome = getOutcome(result.homeGoals, result.awayGoals);
-
   if (predictedOutcome === realOutcome) {
     points += 3;
     reasons.push('Resultado correcto');
+  }
+
+  if (knockout && winnerCorrect && predictedOutcome !== realOutcome) {
+    points += 1;
+    reasons.push('Clasificado correcto');
   }
 
   if (prediction.homeGoals === result.homeGoals || prediction.awayGoals === result.awayGoals) {
@@ -74,4 +110,4 @@ function calculateClassificationPoints(userPreds, advancement) {
   return { total, breakdown };
 }
 
-module.exports = { calculatePoints, calculateClassificationPoints, ROUND_POINTS, ROUND_LABELS };
+module.exports = { calculatePoints, calculateClassificationPoints, ROUND_POINTS, ROUND_LABELS, isKnockoutPhase };

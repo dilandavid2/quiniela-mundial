@@ -173,6 +173,10 @@ function renderCountryOptions() {
   });
 }
 
+function isKnockoutPhase(phase) {
+  return ['r32', 'r16', 'qf', 'sf', 'third', 'final'].includes(phase);
+}
+
 function renderPreloadedUsers() {
   preloadedUsersEl.innerHTML = '';
   const available = PRELOADED_USERNAMES.filter(u => !registeredUsernames.has(u.toLowerCase()));
@@ -244,6 +248,8 @@ function buildMatchCard(match) {
 
   const homeVal = (prediction.homeGoals !== '' && prediction.homeGoals !== undefined) ? prediction.homeGoals : '';
   const awayVal = (prediction.awayGoals !== '' && prediction.awayGoals !== undefined) ? prediction.awayGoals : '';
+  const knockout = isKnockoutPhase(match.phase);
+  const winnerVal = prediction.winner || '';
 
   const resultHtml = match.result
     ? `<span class="result-badge">${match.result.homeGoals} – ${match.result.awayGoals}</span>`
@@ -253,12 +259,19 @@ function buildMatchCard(match) {
     ? `<div class="score-inputs">
         <input class="score-input" data-match-id="${match.id}" data-team="home"
           type="number" min="0" max="10" value="${homeVal}"
-          oninput="this.value=Math.min(10,Math.max(0,+this.value||0));" />
+          oninput="this.value=Math.min(10,Math.max(0,+this.value||0)); toggleWinnerSelect('${match.id}');" />
         <span class="vs-sep">–</span>
         <input class="score-input" data-match-id="${match.id}" data-team="away"
           type="number" min="0" max="10" value="${awayVal}"
-          oninput="this.value=Math.min(10,Math.max(0,+this.value||0));" />
-      </div>`
+          oninput="this.value=Math.min(10,Math.max(0,+this.value||0)); toggleWinnerSelect('${match.id}');" />
+      </div>
+      ${knockout ? `
+        <select class="winner-select hidden" data-match-id="${match.id}">
+          <option value="">¿Quién clasifica?</option>
+          <option value="home" ${winnerVal === 'home' ? 'selected' : ''}>${flag(match.home)} ${match.home}</option>
+          <option value="away" ${winnerVal === 'away' ? 'selected' : ''}>${flag(match.away)} ${match.away}</option>
+        </select>
+      ` : ''}`
     : (homeVal !== ''
         ? `<span class="result-badge" style="color:var(--accent-light)">${homeVal} – ${awayVal}</span>`
         : `<span class="vs-sep" style="font-size:1.4rem">–</span>`);
@@ -292,11 +305,65 @@ function buildMatchCard(match) {
     ${showViewBtn ? `<button class="btn-ver-resultados" data-match-id="${match.id}">👁 Ver pronósticos</button>` : ''}
   `;
 
+  if (canPredict && knockout) {
+    setTimeout(() => toggleWinnerSelect(match.id), 0);
+  }
+
   if (showViewBtn) {
     card.querySelector('.btn-ver-resultados').addEventListener('click', () => openMatchPredictions(match.id));
   }
 
   return card;
+}
+
+function toggleWinnerSelect(matchId) {
+  const homeInput = document.querySelector(`.score-input[data-match-id="${matchId}"][data-team="home"]`);
+  const awayInput = document.querySelector(`.score-input[data-match-id="${matchId}"][data-team="away"]`);
+  const winnerSelect = document.querySelector(`.winner-select[data-match-id="${matchId}"]`);
+
+  if (!homeInput || !awayInput || !winnerSelect) return;
+
+  const home = homeInput.value;
+  const away = awayInput.value;
+
+  if (home !== '' && away !== '' && Number(home) === Number(away)) {
+    winnerSelect.classList.remove('hidden');
+  } else {
+    winnerSelect.classList.add('hidden');
+    winnerSelect.value = '';
+  }
+}
+
+function updateAdminWinnerSelect() {
+  let winnerSelect = document.getElementById('admin-winner-select');
+
+  if (!winnerSelect) {
+    winnerSelect = document.createElement('select');
+    winnerSelect.id = 'admin-winner-select';
+    winnerSelect.name = 'winner';
+    winnerSelect.className = 'admin-winner-select hidden';
+
+    const awayInput = adminResultForm.querySelector('input[name="awayGoals"]');
+    awayInput.insertAdjacentElement('afterend', winnerSelect);
+  }
+
+  const matchId = adminMatchSelect.value;
+  const match = window.currentMatches?.find((m) => m.id === matchId);
+  const homeGoals = Number(adminResultForm.querySelector('input[name="homeGoals"]').value);
+  const awayGoals = Number(adminResultForm.querySelector('input[name="awayGoals"]').value);
+
+  if (!match || !isKnockoutPhase(match.phase) || homeGoals !== awayGoals) {
+    winnerSelect.classList.add('hidden');
+    winnerSelect.innerHTML = '';
+    return;
+  }
+
+  winnerSelect.classList.remove('hidden');
+  winnerSelect.innerHTML = `
+    <option value="">¿Quién clasificó?</option>
+    <option value="home">${flag(match.home)} ${match.home}</option>
+    <option value="away">${flag(match.away)} ${match.away}</option>
+  `;
 }
 
 // ── Render: Fase de grupos ────────────────────────────────────────────────────
@@ -770,6 +837,9 @@ async function loadData() {
     api('/api/matches'),
     api('/api/leaderboard')
   ]);
+
+  window.currentMatches = matches;
+
   registeredUsernames = new Set(leaderboard.map(r => r.username.toLowerCase()));
   renderPreloadedUsers();
   renderMatches(matches);
@@ -908,9 +978,18 @@ document.getElementById('fab-save')?.addEventListener('click', async () => {
         setMessage('Los goles deben estar entre 0 y 10', true);
         return;
       }
+
+      const winnerSelect = document.querySelector(`.winner-select[data-match-id="${matchId}"]`);
+      const winner = winnerSelect && !winnerSelect.classList.contains('hidden') ? winnerSelect.value : null;
+
+      if (winnerSelect && !winnerSelect.classList.contains('hidden') && !winner) {
+        setMessage('Si pronosticas empate en eliminatorias, debes elegir quién clasifica', true);
+        return;
+      }
+
       await api(`/api/predictions/${matchId}`, {
         method: 'POST',
-        body: JSON.stringify({ homeGoals, awayGoals })
+        body: JSON.stringify({ homeGoals, awayGoals, winner })
       });
       guardados++;
     }
@@ -943,6 +1022,7 @@ adminResultForm?.addEventListener('submit', async (e) => {
   const matchId = fd.get('matchId');
   const homeGoals = Number(fd.get('homeGoals'));
   const awayGoals = Number(fd.get('awayGoals'));
+  const winner = fd.get('winner') || null;
 
   if (!matchId) {
     setMessage('Debes seleccionar un partido', true);
@@ -965,10 +1045,14 @@ adminResultForm?.addEventListener('submit', async (e) => {
     const headers = {};
     if (secret) headers['x-admin-secret'] = secret;
 
+    const selectedMatch = adminMatchSelect
+      ? [...adminMatchSelect.options].find((opt) => opt.value === matchId)
+      : null;
+
     await api(`/api/admin/matches/${matchId}/result`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ homeGoals, awayGoals })
+      body: JSON.stringify({ homeGoals, awayGoals, winner })
     });
 
     setMessage('Resultado oficial guardado ✅');
@@ -978,6 +1062,12 @@ adminResultForm?.addEventListener('submit', async (e) => {
     setMessage(e.message, true);
   }
 });
+
+adminMatchSelect?.addEventListener('change', updateAdminWinnerSelect);
+
+adminResultForm?.querySelector('input[name="homeGoals"]')?.addEventListener('input', updateAdminWinnerSelect);
+adminResultForm?.querySelector('input[name="awayGoals"]')?.addEventListener('input', updateAdminWinnerSelect);
+
 
 // ── Modal: ver pronósticos de todos en un partido ────────────────────────────
 async function openMatchPredictions(matchId) {
