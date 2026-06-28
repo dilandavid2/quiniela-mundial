@@ -55,6 +55,157 @@ function isAdminAuthorized(req, db) {
   return normalizedUsername === ADMIN_USERNAME_NO_SECRET;
 }
 
+function extractMatchNumber(matchId) {
+  const num = Number(String(matchId || '').replace(/[^0-9]/g, ''));
+  return Number.isFinite(num) ? num : Number.MAX_SAFE_INTEGER;
+}
+
+function buildGroupStandings(db) {
+  const table = {};
+
+  db.matches
+    .filter((m) => (m.phase || 'group') === 'group' && m.group)
+    .forEach((m) => {
+      if (!table[m.group]) table[m.group] = {};
+      [m.home, m.away].forEach((team) => {
+        if (!team) return;
+        if (!table[m.group][team]) {
+          table[m.group][team] = { team, group: m.group, pts: 0, gf: 0, gc: 0, pj: 0 };
+        }
+      });
+
+      if (!m.result || !m.home || !m.away) return;
+
+      const home = table[m.group][m.home];
+      const away = table[m.group][m.away];
+      const hg = Number(m.result.homeGoals);
+      const ag = Number(m.result.awayGoals);
+
+      home.pj += 1;
+      away.pj += 1;
+      home.gf += hg;
+      home.gc += ag;
+      away.gf += ag;
+      away.gc += hg;
+
+      if (hg > ag) home.pts += 3;
+      else if (ag > hg) away.pts += 3;
+      else {
+        home.pts += 1;
+        away.pts += 1;
+      }
+    });
+
+  const rankingByGroup = {};
+  Object.entries(table).forEach(([group, teams]) => {
+    rankingByGroup[group] = Object.values(teams).sort((a, b) => {
+      const dgA = a.gf - a.gc;
+      const dgB = b.gf - b.gc;
+      return b.pts - a.pts || dgB - dgA || b.gf - a.gf || a.team.localeCompare(b.team);
+    });
+  });
+
+  return rankingByGroup;
+}
+
+function getWinnerFromMatch(match) {
+  if (!match || !match.result || !match.home || !match.away) return null;
+  const hg = Number(match.result.homeGoals);
+  const ag = Number(match.result.awayGoals);
+  if (hg === ag) return null;
+  return hg > ag ? match.home : match.away;
+}
+
+function getLoserFromMatch(match) {
+  if (!match || !match.result || !match.home || !match.away) return null;
+  const hg = Number(match.result.homeGoals);
+  const ag = Number(match.result.awayGoals);
+  if (hg === ag) return null;
+  return hg > ag ? match.away : match.home;
+}
+
+function resolveKnockoutTeams(db) {
+  const rankingByGroup = buildGroupStandings(db);
+  const firstByGroup = {};
+  const secondByGroup = {};
+  const thirdByGroup = {};
+
+  Object.entries(rankingByGroup).forEach(([group, ranking]) => {
+    if (ranking[0]) firstByGroup[group] = ranking[0].team;
+    if (ranking[1]) secondByGroup[group] = ranking[1].team;
+    if (ranking[2]) thirdByGroup[group] = ranking[2];
+  });
+
+  const bestThirds = Object.values(thirdByGroup).sort((a, b) => {
+    const dgA = a.gf - a.gc;
+    const dgB = b.gf - b.gc;
+    return b.pts - a.pts || dgB - dgA || b.gf - a.gf || a.group.localeCompare(b.group);
+  });
+
+  const usedThirdGroups = new Set();
+  const byId = new Map(db.matches.map((m) => [String(m.id).toUpperCase(), m]));
+
+  function resolveSlot(desc) {
+    const label = String(desc || '').trim();
+    if (!label) return null;
+
+    const rankMatch = label.match(/^([123])°\s+Grupo\s+([A-L])$/i);
+    if (rankMatch) {
+      const pos = rankMatch[1];
+      const group = rankMatch[2].toUpperCase();
+      if (pos === '1') return firstByGroup[group] || null;
+      if (pos === '2') return secondByGroup[group] || null;
+      return (thirdByGroup[group] && thirdByGroup[group].team) || null;
+    }
+
+    const thirdMask = label.match(/^3°\s+([A-L](?:\/[A-L])*)$/i);
+    if (thirdMask) {
+      const allowed = new Set(thirdMask[1].toUpperCase().split('/').map((g) => g.trim()));
+      const pick = bestThirds.find((t) => allowed.has(t.group) && !usedThirdGroups.has(t.group));
+      if (!pick) return null;
+      usedThirdGroups.add(pick.group);
+      return pick.team;
+    }
+
+    const winnerRef = label.match(/^Gan\.\s*(P\d+)$/i);
+    if (winnerRef) {
+      const ref = byId.get(winnerRef[1].toUpperCase());
+      return getWinnerFromMatch(ref);
+    }
+
+    const loserRef = label.match(/^Per\.\s*(P\d+)$/i);
+    if (loserRef) {
+      const ref = byId.get(loserRef[1].toUpperCase());
+      return getLoserFromMatch(ref);
+    }
+
+    return null;
+  }
+
+  let changed = false;
+
+  const knockoutMatches = db.matches
+    .filter((m) => (m.phase || 'group') !== 'group')
+    .sort((a, b) => extractMatchNumber(a.id) - extractMatchNumber(b.id));
+
+  knockoutMatches.forEach((match) => {
+    const resolvedHome = resolveSlot(match.homeDesc);
+    const resolvedAway = resolveSlot(match.awayDesc);
+
+    if (!match.home && resolvedHome) {
+      match.home = resolvedHome;
+      changed = true;
+    }
+
+    if (!match.away && resolvedAway) {
+      match.away = resolvedAway;
+      changed = true;
+    }
+  });
+
+  return changed;
+}
+
 app.post('/api/auth/register', async (req, res) => {
   const { username, password, country } = req.body || {};
   const normalized = String(username || '').trim().toLowerCase();
@@ -140,6 +291,8 @@ app.get('/api/auth/me', (req, res) => {
 
 app.get('/api/matches', requireAuth, (req, res) => {
   const db = readDb();
+  const resolved = resolveKnockoutTeams(db);
+  if (resolved) writeDb(db);
   const user = findUserBySession(db, req);
 
   if (!user) {
@@ -199,6 +352,8 @@ app.post('/api/predictions/:matchId', requireAuth, (req, res) => {
   }
 
   const db = readDb();
+  const resolved = resolveKnockoutTeams(db);
+  if (resolved) writeDb(db);
   const user = findUserBySession(db, req);
   if (!user) {
     return res.status(401).json({ error: 'No autenticado' });
@@ -251,6 +406,8 @@ app.post('/api/predictions/:matchId', requireAuth, (req, res) => {
 app.get('/api/matches/:matchId/predictions', requireAuth, (req, res) => {
   const { matchId } = req.params;
   const db = readDb();
+  const resolved = resolveKnockoutTeams(db);
+  if (resolved) writeDb(db);
   const match = db.matches.find((m) => m.id === matchId);
   if (!match) return res.status(404).json({ error: 'Partido no encontrado' });
   if (!match.locked && !match.result) {
@@ -315,6 +472,8 @@ app.get('/api/leaderboard', requireAuth, (req, res) => {
 });
 app.post('/api/admin/matches/:matchId/result', (req, res) => {
   const db = readDb();
+  const resolved = resolveKnockoutTeams(db);
+  if (resolved) writeDb(db);
   if (!isAdminAuthorized(req, db)) {
     return res.status(403).json({ error: 'No autorizado para cargar resultados' });
   }
