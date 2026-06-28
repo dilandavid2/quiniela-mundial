@@ -267,7 +267,7 @@ function buildMatchCard(match) {
     ? `<div class="match-points-row"><span class="pts-badge">${match.points} pts</span>${match.pointsReason}</div>`
     : '';
 
-  const showViewBtn = match.locked || Boolean(match.result);
+  const showViewBtn = locked || Boolean(match.result);
 
   card.innerHTML = `
     <div class="match-meta-top">
@@ -379,6 +379,8 @@ function renderGroupStandings(matches) {
     else                            { hm.e++; aw.e++; }
   });
 
+  const bestThirds = [];
+
   // Renderizar cada grupo ordenado por pts > DG > GF
   Object.entries(standings).forEach(([grp, teams]) => {
     const rows = Object.entries(teams).sort(([, a], [, b]) => {
@@ -386,6 +388,17 @@ function renderGroupStandings(matches) {
       const dA = a.gf-a.gc, dB = b.gf-b.gc;
       return pB-pA || dB-dA || b.gf-a.gf;
     });
+
+    if (rows[2]) {
+      const [team, s] = rows[2];
+      bestThirds.push({
+        group: grp,
+        team,
+        pts: s.g * 3 + s.e,
+        dg: s.gf - s.gc,
+        gf: s.gf
+      });
+    }
 
     const wrap = document.createElement('div');
     wrap.className = 'group-section';
@@ -412,6 +425,35 @@ function renderGroupStandings(matches) {
       </div>`;
     el.appendChild(wrap);
   });
+
+  const sortedThirds = bestThirds.sort((a, b) => {
+    return b.pts - a.pts || b.dg - a.dg || b.gf - a.gf || a.group.localeCompare(b.group);
+  });
+
+  const thirdWrap = document.createElement('div');
+  thirdWrap.className = 'group-section';
+  thirdWrap.innerHTML = `
+    <div class="group-title">Mejores terceros (16avos)</div>
+    <div class="group-table thirds-table">
+      <div class="gt-row gt-header">
+        <span class="gt-team">Equipo</span>
+        <span>Grp</span><span>Pts</span><span>DG</span><span>GF</span>
+        <span>Estado</span>
+      </div>
+      ${sortedThirds.map((item, idx) => `
+        <div class="gt-row ${idx < 8 ? 'third-qualified' : 'third-eliminated'}">
+          <span class="gt-team">${flag(item.team)} ${item.team}</span>
+          <span>${item.group}</span>
+          <span>${item.pts}</span>
+          <span>${item.dg > 0 ? '+' + item.dg : item.dg}</span>
+          <span>${item.gf}</span>
+          <span class="third-status">${idx < 8 ? 'Clasifica' : 'Fuera'}</span>
+        </div>
+      `).join('')}
+    </div>
+  `;
+
+  el.appendChild(thirdWrap);
 }
 
 function renderClassificationTeams(advancement, predictions) {
