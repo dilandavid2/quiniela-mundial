@@ -238,7 +238,9 @@ function buildMatchCard(match) {
 
   const badge = match.group
     ? `Grupo ${match.group}`
-    : (match.homeDesc ? `${match.homeDesc} vs ${match.awayDesc}` : (match.phase || ''));
+    : (match.home && match.away
+        ? (match.phase || '')
+        : (match.homeDesc ? `${match.homeDesc} vs ${match.awayDesc}` : (match.phase || '')));
   const lockIcon = locked ? ' 🔒' : '';
 
   const homeLabel = hasTeams ? match.home : (match.homeDesc || 'Por definir');
