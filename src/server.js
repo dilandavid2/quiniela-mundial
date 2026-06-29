@@ -60,6 +60,10 @@ function extractMatchNumber(matchId) {
   return Number.isFinite(num) ? num : Number.MAX_SAFE_INTEGER;
 }
 
+function isMatchExcludedFromScoring(match) {
+  return match && match.excludeFromScoring === true;
+}
+
 function buildGroupStandings(db) {
   const table = {};
 
